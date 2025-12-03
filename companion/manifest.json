@@ -1,0 +1,33 @@
+{
+	"id": "ableton-osc",
+	"name": "Ableton Live (OSC)",
+	"shortname": "ableton",
+	"manufacturer": "Ableton",
+	"products": [
+		"Live"
+	],
+	"keywords": [
+		"ableton",
+		"live",
+		"osc",
+		"music"
+	],
+	"version": "1.0.0",
+	"license": "MIT",
+	"description": "Control Ableton Live via OSC",
+	"repository": "https://github.com/test/companion-module-ableton-osc",
+	"bugs": "https://github.com/test/companion-module-ableton-osc/issues",
+	"maintainers": [
+		{
+			"name": "Mathieu Lantin",
+			"email": "47821824+matlantin@users.noreply.github.com"
+		}
+	],
+	"legacyIds": [],
+	"runtime": {
+		"type": "node18",
+		"api": "nodejs-ipc",
+		"apiVersion": "0.0.0",
+		"entrypoint": "../main.js"
+	}
+}

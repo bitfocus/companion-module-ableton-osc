@@ -1,0 +1,14 @@
+{
+  "name": "companion-module-ableton-osc",
+  "version": "1.0.0",
+  "main": "main.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@companion-module/base": "~1.11.3",
+    "jimp": "^1.6.0",
+    "osc": "^2.4.4"
+  }
+}
