@@ -14,6 +14,7 @@ class AbletonOSCInstance extends InstanceBase {
 		this.trackLevels = {}
 		this.trackLevelsLeft = {}
 		this.trackLevelsRight = {}
+		this.trackStoredVolumes = {}
 		this.variableDefinitions = []
 		this.numTracks = 8
 		this.numScenes = 8
@@ -138,8 +139,75 @@ class AbletonOSCInstance extends InstanceBase {
 		if (!fade) return
 
 		fade.state = 'fading'
-		fade.startValue = startValue
+		
+		// Determine Peak/Target Volume logic for Toggle Fades
+		let peakVolume = startValue
+		
+		if (fade.subtype === 'toggle') {
+			if (fade.targetVolume !== undefined) {
+				// We are interrupting, so we know the target
+				peakVolume = fade.targetVolume
+			} else {
+				// First time or fresh fade
+				if (fade.direction === 'out') {
+					// We are fading out from current level. Current level is the peak.
+					peakVolume = startValue
+					// Store it for future Fade Ins
+					this.trackStoredVolumes[fade.track] = startValue
+				} else {
+					// Fade In
+					// We want to go to the stored volume, or default to 0.85 (approx 0dB)
+					if (this.trackStoredVolumes[fade.track] !== undefined) {
+						peakVolume = this.trackStoredVolumes[fade.track]
+					} else {
+						peakVolume = 0.85
+					}
+				}
+			}
+			// For the math to work, we treat 'startValue' in the fade object as the Peak Volume
+			fade.startValue = peakVolume
+		} else {
+			fade.startValue = startValue
+		}
+
 		fade.startTime = Date.now()
+
+		// Calculate initial progress if we are interrupting (to avoid jumps)
+		// If we are at 'startValue' (OSC volume) and we want to go to 'peakVolume' (fade.startValue)
+		// We need to find the 'elapsed' time that corresponds to this position on the curve.
+		
+		let initialProgress = 0
+		
+		if (fade.subtype === 'toggle') {
+			// Current Volume from OSC = startValue (argument)
+			// Target Peak = fade.startValue
+			
+			if (fade.direction === 'out') {
+				// Curve: val = peak * (remaining * remaining)
+				// val / peak = remaining^2
+				// remaining = sqrt(val / peak)
+				// progress = 1 - remaining
+				if (fade.startValue > 0.001) {
+					const ratio = Math.max(0, Math.min(1, startValue / fade.startValue))
+					const remaining = Math.sqrt(ratio)
+					initialProgress = 1.0 - remaining
+				}
+			} else {
+				// Curve: val = peak * (1 - p*p) where p = 1 - progress
+				// val / peak = 1 - p*p
+				// p*p = 1 - (val / peak)
+				// p = sqrt(1 - ratio)
+				// progress = 1 - p
+				if (fade.startValue > 0.001) {
+					const ratio = Math.max(0, Math.min(1, startValue / fade.startValue))
+					const p = Math.sqrt(1.0 - ratio)
+					initialProgress = 1.0 - p
+				}
+			}
+			
+			// Adjust startTime to fake the elapsed time
+			fade.startTime -= (initialProgress * fade.duration)
+		}
 
 		// If fading in, set value to 0 and fire/start
 		if (fade.direction === 'in') {
@@ -154,10 +222,13 @@ class AbletonOSCInstance extends InstanceBase {
 					{ type: 'i', value: fade.clip }
 				])
 			} else if (fade.type === 'track') {
-				this.sendOsc('/live/track/set/volume', [
-					{ type: 'i', value: fade.track },
-					{ type: 'f', value: 0.0 }
-				])
+				// Only force to 0 if NOT a toggle (standard behavior) or if we are starting from scratch
+				if (fade.subtype !== 'toggle') {
+					this.sendOsc('/live/track/set/volume', [
+						{ type: 'i', value: fade.track },
+						{ type: 'f', value: 0.0 }
+					])
+				}
 			}
 		}
 
@@ -189,14 +260,22 @@ class AbletonOSCInstance extends InstanceBase {
 							{ type: 'f', value: fade.startValue }
 						])
 					} else if (fade.type === 'track') {
-						this.sendOsc('/live/track/stop_all_clips', [
-							{ type: 'i', value: fade.track }
-						])
-						// Restore volume
-						this.sendOsc('/live/track/set/volume', [
-							{ type: 'i', value: fade.track },
-							{ type: 'f', value: fade.startValue }
-						])
+						if (fade.stopClips !== false) {
+							this.sendOsc('/live/track/stop_all_clips', [
+								{ type: 'i', value: fade.track }
+							])
+							// Restore volume
+							this.sendOsc('/live/track/set/volume', [
+								{ type: 'i', value: fade.track },
+								{ type: 'f', value: fade.startValue }
+							])
+						} else {
+							// For toggle fade out, we ensure we hit 0 exactly and stay there
+							this.sendOsc('/live/track/set/volume', [
+								{ type: 'i', value: fade.track },
+								{ type: 'f', value: 0.0 }
+							])
+						}
 					}
 				} else {
 					// Fade In Finished - Ensure we hit target exactly

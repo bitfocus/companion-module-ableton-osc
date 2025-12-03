@@ -320,8 +320,17 @@ module.exports = function (self) {
 				},
 				{
 					type: 'number',
-					label: 'Duration (ms)',
-					id: 'duration',
+					label: 'Duration In (ms)',
+					id: 'duration_in',
+					min: 100,
+					max: 60000,
+					default: 2000,
+					required: true
+				},
+				{
+					type: 'number',
+					label: 'Duration Out (ms)',
+					id: 'duration_out',
 					min: 100,
 					max: 60000,
 					default: 3500,
@@ -330,7 +339,6 @@ module.exports = function (self) {
 			],
 			callback: async (event) => {
 				const track = event.options.track - 1
-				const duration = event.options.duration
 				
 				// Parse state
 				let state = await self.parseVariablesInString(event.options.state)
@@ -340,18 +348,36 @@ module.exports = function (self) {
 				
 				const isTrue = (state === 'true' || state === '1' || state === 'on')
 				const direction = isTrue ? 'in' : 'out'
+				const duration = isTrue ? event.options.duration_in : event.options.duration_out
 
 				const id = `track_${track}`
 				
 				if (!self.activeFades) self.activeFades = {}
+
+				// Check for existing fade to interrupt
+				const existingFade = self.activeFades[id]
+				let targetVolume = undefined
+
+				if (existingFade) {
+					if (existingFade.interval) {
+						clearInterval(existingFade.interval)
+					}
+					// If we interrupt, we try to preserve the peak volume
+					// If interrupting a Fade Out, startValue was the peak.
+					// If interrupting a Fade In, startValue was the peak.
+					targetVolume = existingFade.startValue
+				}
 				
 				self.activeFades[id] = {
 					type: 'track',
+					subtype: 'toggle',
 					direction: direction,
 					track,
 					duration,
 					startTime: Date.now(),
-					state: 'init'
+					state: 'init',
+					stopClips: false,
+					targetVolume: targetVolume
 				}
 
 				self.sendOsc('/live/track/get/volume', [
