@@ -320,6 +320,15 @@ module.exports = function (self) {
 				},
 				{
 					type: 'number',
+					label: 'Hold time (ms)',
+					id: 'hold_time',
+					min: 0,
+					max: 60000,
+					default: 0,
+					required: true
+				},
+				{
+					type: 'number',
 					label: 'Rise time (ms)',
 					id: 'rise_time',
 					min: 100,
@@ -329,20 +338,20 @@ module.exports = function (self) {
 				},
 				{
 					type: 'number',
-					label: 'Fall time (ms)',
-					id: 'fall_time',
-					min: 100,
-					max: 60000,
-					default: 3500,
-					required: true
-				},
-				{
-					type: 'number',
 					label: 'On time (ms)',
 					id: 'on_time',
 					min: 0,
 					max: 60000,
 					default: 500,
+					required: true
+				},
+				{
+					type: 'number',
+					label: 'Fall time (ms)',
+					id: 'fall_time',
+					min: 100,
+					max: 60000,
+					default: 3500,
 					required: true
 				}
 			],
@@ -360,26 +369,40 @@ module.exports = function (self) {
 				const riseTime = event.options.rise_time
 				const fallTime = event.options.fall_time
 				const onTime = event.options.on_time
+				const holdTime = event.options.hold_time
 
 				const id = `track_${track}`
 				
-				// Clear any pending "On Time" delay
+				// Clear any pending delay (whether it was for In or Out)
 				if (self.trackDelays && self.trackDelays[id]) {
 					clearTimeout(self.trackDelays[id])
 					delete self.trackDelays[id]
 				}
 
 				if (isTrue) {
-					// FADE IN (Immediate)
-					self.setupTrackToggleFade(track, 'in', riseTime)
+					// FADE IN (Delayed by Hold Time)
+					if (!self.trackDelays) self.trackDelays = {}
+
+					if (holdTime > 0) {
+						self.trackDelays[id] = setTimeout(() => {
+							self.setupTrackToggleFade(track, 'in', riseTime)
+							delete self.trackDelays[id]
+						}, holdTime)
+					} else {
+						self.setupTrackToggleFade(track, 'in', riseTime)
+					}
 				} else {
-					// FADE OUT (Delayed)
+					// FADE OUT (Delayed by On Time)
 					if (!self.trackDelays) self.trackDelays = {}
 					
-					self.trackDelays[id] = setTimeout(() => {
+					if (onTime > 0) {
+						self.trackDelays[id] = setTimeout(() => {
+							self.setupTrackToggleFade(track, 'out', fallTime)
+							delete self.trackDelays[id]
+						}, onTime)
+					} else {
 						self.setupTrackToggleFade(track, 'out', fallTime)
-						delete self.trackDelays[id]
-					}, onTime)
+					}
 				}
 			}
 		},
