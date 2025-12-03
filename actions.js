@@ -124,7 +124,7 @@ module.exports = function (self) {
 					id: 'duration',
 					min: 100,
 					max: 60000,
-					default: 2000,
+					default: 3500,
 					required: true
 				}
 			],
@@ -133,12 +133,14 @@ module.exports = function (self) {
 				const clip = event.options.clip - 1
 				const duration = event.options.duration
 
-				const id = `${track}_${clip}`
+				const id = `clip_${track}_${clip}`
 				
 				// Initialize fade state
-				if (!self.fadingClips) self.fadingClips = {}
+				if (!self.activeFades) self.activeFades = {}
 				
-				self.fadingClips[id] = {
+				self.activeFades[id] = {
+					type: 'clip',
+					direction: 'out',
 					track,
 					clip,
 					duration,
@@ -150,6 +152,150 @@ module.exports = function (self) {
 				self.sendOsc('/live/clip/get/gain', [
 					{ type: 'i', value: track },
 					{ type: 'i', value: clip }
+				])
+			}
+		},
+		fade_fire_clip: {
+			name: 'Fade In and Fire Clip',
+			options: [
+				{
+					type: 'number',
+					label: 'Track Index',
+					id: 'track',
+					min: 1,
+					max: 1000,
+					default: 1,
+					required: true
+				},
+				{
+					type: 'number',
+					label: 'Clip Index',
+					id: 'clip',
+					min: 1,
+					max: 1000,
+					default: 1,
+					required: true
+				},
+				{
+					type: 'number',
+					label: 'Duration (ms)',
+					id: 'duration',
+					min: 100,
+					max: 60000,
+					default: 3500,
+					required: true
+				}
+			],
+			callback: async (event) => {
+				const track = event.options.track - 1
+				const clip = event.options.clip - 1
+				const duration = event.options.duration
+
+				const id = `clip_${track}_${clip}`
+				
+				if (!self.activeFades) self.activeFades = {}
+				
+				self.activeFades[id] = {
+					type: 'clip',
+					direction: 'in',
+					track,
+					clip,
+					duration,
+					startTime: Date.now(),
+					state: 'init'
+				}
+
+				self.sendOsc('/live/clip/get/gain', [
+					{ type: 'i', value: track },
+					{ type: 'i', value: clip }
+				])
+			}
+		},
+		fade_stop_track: {
+			name: 'Fade Out and Stop Track',
+			options: [
+				{
+					type: 'number',
+					label: 'Track Index',
+					id: 'track',
+					min: 1,
+					max: 1000,
+					default: 1,
+					required: true
+				},
+				{
+					type: 'number',
+					label: 'Duration (ms)',
+					id: 'duration',
+					min: 100,
+					max: 60000,
+					default: 3500,
+					required: true
+				}
+			],
+			callback: async (event) => {
+				const track = event.options.track - 1
+				const duration = event.options.duration
+
+				const id = `track_${track}`
+				
+				if (!self.activeFades) self.activeFades = {}
+				
+				self.activeFades[id] = {
+					type: 'track',
+					direction: 'out',
+					track,
+					duration,
+					startTime: Date.now(),
+					state: 'init'
+				}
+
+				self.sendOsc('/live/track/get/volume', [
+					{ type: 'i', value: track }
+				])
+			}
+		},
+		fade_in_track: {
+			name: 'Fade In Track Volume',
+			options: [
+				{
+					type: 'number',
+					label: 'Track Index',
+					id: 'track',
+					min: 1,
+					max: 1000,
+					default: 1,
+					required: true
+				},
+				{
+					type: 'number',
+					label: 'Duration (ms)',
+					id: 'duration',
+					min: 100,
+					max: 60000,
+					default: 3500,
+					required: true
+				}
+			],
+			callback: async (event) => {
+				const track = event.options.track - 1
+				const duration = event.options.duration
+
+				const id = `track_${track}`
+				
+				if (!self.activeFades) self.activeFades = {}
+				
+				self.activeFades[id] = {
+					type: 'track',
+					direction: 'in',
+					track,
+					duration,
+					startTime: Date.now(),
+					state: 'init'
+				}
+
+				self.sendOsc('/live/track/get/volume', [
+					{ type: 'i', value: track }
 				])
 			}
 		},

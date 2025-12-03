@@ -17,7 +17,7 @@ class AbletonOSCInstance extends InstanceBase {
 		this.variableDefinitions = []
 		this.numTracks = 8
 		this.numScenes = 8
-		this.fadingClips = {}
+		this.activeFades = {}
 	}
 
 	async init(config) {
@@ -113,13 +113,33 @@ class AbletonOSCInstance extends InstanceBase {
 		}
 	}
 
-	startFade(id, startGain) {
-		const fade = this.fadingClips[id]
+	startFade(id, startValue) {
+		const fade = this.activeFades[id]
 		if (!fade) return
 
 		fade.state = 'fading'
-		fade.startGain = startGain
+		fade.startValue = startValue
 		fade.startTime = Date.now()
+
+		// If fading in, set value to 0 and fire/start
+		if (fade.direction === 'in') {
+			if (fade.type === 'clip') {
+				this.sendOsc('/live/clip/set/gain', [
+					{ type: 'i', value: fade.track },
+					{ type: 'i', value: fade.clip },
+					{ type: 'f', value: 0.0 }
+				])
+				this.sendOsc('/live/clip/fire', [
+					{ type: 'i', value: fade.track },
+					{ type: 'i', value: fade.clip }
+				])
+			} else if (fade.type === 'track') {
+				this.sendOsc('/live/track/set/volume', [
+					{ type: 'i', value: fade.track },
+					{ type: 'f', value: 0.0 }
+				])
+			}
+		}
 
 		// Interval for updates (e.g. every 50ms)
 		const intervalTime = 50
@@ -132,31 +152,74 @@ class AbletonOSCInstance extends InstanceBase {
 			const progress = Math.min(elapsed / fade.duration, 1.0)
 			
 			if (progress >= 1.0) {
-				// Stop and restore
+				// Finished
 				clearInterval(fade.interval)
-				this.sendOsc('/live/clip/stop', [
-					{ type: 'i', value: fade.track },
-					{ type: 'i', value: fade.clip }
-				])
 				
-				// Restore gain
-				this.sendOsc('/live/clip/set/gain', [
-					{ type: 'i', value: fade.track },
-					{ type: 'i', value: fade.clip },
-					{ type: 'f', value: fade.startGain }
-				])
+				if (fade.direction === 'out') {
+					// Stop and restore
+					if (fade.type === 'clip') {
+						this.sendOsc('/live/clip/stop', [
+							{ type: 'i', value: fade.track },
+							{ type: 'i', value: fade.clip }
+						])
+						// Restore gain
+						this.sendOsc('/live/clip/set/gain', [
+							{ type: 'i', value: fade.track },
+							{ type: 'i', value: fade.clip },
+							{ type: 'f', value: fade.startValue }
+						])
+					} else if (fade.type === 'track') {
+						this.sendOsc('/live/track/stop_all_clips', [
+							{ type: 'i', value: fade.track }
+						])
+						// Restore volume
+						this.sendOsc('/live/track/set/volume', [
+							{ type: 'i', value: fade.track },
+							{ type: 'f', value: fade.startValue }
+						])
+					}
+				} else {
+					// Fade In Finished - Ensure we hit target exactly
+					if (fade.type === 'clip') {
+						this.sendOsc('/live/clip/set/gain', [
+							{ type: 'i', value: fade.track },
+							{ type: 'i', value: fade.clip },
+							{ type: 'f', value: fade.startValue }
+						])
+					} else if (fade.type === 'track') {
+						this.sendOsc('/live/track/set/volume', [
+							{ type: 'i', value: fade.track },
+							{ type: 'f', value: fade.startValue }
+						])
+					}
+				}
 				
-				delete this.fadingClips[id]
+				delete this.activeFades[id]
 			} else {
-				// Quadratic fade for "logarithmic" feel
-				const remaining = 1.0 - progress
-				const newGain = fade.startGain * (remaining * remaining)
+				// Calculate new value
+				let newValue
 				
-				this.sendOsc('/live/clip/set/gain', [
-					{ type: 'i', value: fade.track },
-					{ type: 'i', value: fade.clip },
-					{ type: 'f', value: newGain }
-				])
+				if (fade.direction === 'out') {
+					// Quadratic fade out
+					const remaining = 1.0 - progress
+					newValue = fade.startValue * (remaining * remaining)
+				} else {
+					// Quadratic fade in
+					newValue = fade.startValue * (progress * progress)
+				}
+				
+				if (fade.type === 'clip') {
+					this.sendOsc('/live/clip/set/gain', [
+						{ type: 'i', value: fade.track },
+						{ type: 'i', value: fade.clip },
+						{ type: 'f', value: newValue }
+					])
+				} else if (fade.type === 'track') {
+					this.sendOsc('/live/track/set/volume', [
+						{ type: 'i', value: fade.track },
+						{ type: 'f', value: newValue }
+					])
+				}
 			}
 		}, intervalTime)
 	}
@@ -174,9 +237,19 @@ class AbletonOSCInstance extends InstanceBase {
 			const clip = args[1].value
 			const gain = args[2].value
 			
-			const id = `${track}_${clip}`
-			if (this.fadingClips[id] && this.fadingClips[id].state === 'init') {
+			const id = `clip_${track}_${clip}`
+			if (this.activeFades[id] && this.activeFades[id].state === 'init') {
 				this.startFade(id, gain)
+			}
+
+		} else if (address === '/live/track/get/volume') {
+			// args: [track, volume]
+			const track = args[0].value
+			const volume = args[1].value
+			
+			const id = `track_${track}`
+			if (this.activeFades[id] && this.activeFades[id].state === 'init') {
+				this.startFade(id, volume)
 			}
 
 		} else if (address === '/live/clip/get/name') {
