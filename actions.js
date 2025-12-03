@@ -97,6 +97,62 @@ module.exports = function (self) {
 				])
 			}
 		},
+		fade_stop_clip: {
+			name: 'Fade Out and Stop Clip',
+			options: [
+				{
+					type: 'number',
+					label: 'Track Index',
+					id: 'track',
+					min: 1,
+					max: 1000,
+					default: 1,
+					required: true
+				},
+				{
+					type: 'number',
+					label: 'Clip Index',
+					id: 'clip',
+					min: 1,
+					max: 1000,
+					default: 1,
+					required: true
+				},
+				{
+					type: 'number',
+					label: 'Duration (ms)',
+					id: 'duration',
+					min: 100,
+					max: 60000,
+					default: 2000,
+					required: true
+				}
+			],
+			callback: async (event) => {
+				const track = event.options.track - 1
+				const clip = event.options.clip - 1
+				const duration = event.options.duration
+
+				const id = `${track}_${clip}`
+				
+				// Initialize fade state
+				if (!self.fadingClips) self.fadingClips = {}
+				
+				self.fadingClips[id] = {
+					track,
+					clip,
+					duration,
+					startTime: Date.now(),
+					state: 'init'
+				}
+
+				// Request current gain to start the process
+				self.sendOsc('/live/clip/get/gain', [
+					{ type: 'i', value: track },
+					{ type: 'i', value: clip }
+				])
+			}
+		},
 		refresh_clip_info: {
 			name: 'Refresh Clip Info',
 			options: [

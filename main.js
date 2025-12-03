@@ -17,6 +17,7 @@ class AbletonOSCInstance extends InstanceBase {
 		this.variableDefinitions = []
 		this.numTracks = 8
 		this.numScenes = 8
+		this.fadingClips = {}
 	}
 
 	async init(config) {
@@ -112,6 +113,54 @@ class AbletonOSCInstance extends InstanceBase {
 		}
 	}
 
+	startFade(id, startGain) {
+		const fade = this.fadingClips[id]
+		if (!fade) return
+
+		fade.state = 'fading'
+		fade.startGain = startGain
+		fade.startTime = Date.now()
+
+		// Interval for updates (e.g. every 50ms)
+		const intervalTime = 50
+		
+		if (fade.interval) clearInterval(fade.interval)
+
+		fade.interval = setInterval(() => {
+			const now = Date.now()
+			const elapsed = now - fade.startTime
+			const progress = Math.min(elapsed / fade.duration, 1.0)
+			
+			if (progress >= 1.0) {
+				// Stop and restore
+				clearInterval(fade.interval)
+				this.sendOsc('/live/clip/stop', [
+					{ type: 'i', value: fade.track },
+					{ type: 'i', value: fade.clip }
+				])
+				
+				// Restore gain
+				this.sendOsc('/live/clip/set/gain', [
+					{ type: 'i', value: fade.track },
+					{ type: 'i', value: fade.clip },
+					{ type: 'f', value: fade.startGain }
+				])
+				
+				delete this.fadingClips[id]
+			} else {
+				// Quadratic fade for "logarithmic" feel
+				const remaining = 1.0 - progress
+				const newGain = fade.startGain * (remaining * remaining)
+				
+				this.sendOsc('/live/clip/set/gain', [
+					{ type: 'i', value: fade.track },
+					{ type: 'i', value: fade.clip },
+					{ type: 'f', value: newGain }
+				])
+			}
+		}, intervalTime)
+	}
+
 	processOscMessage(msg) {
 		const address = msg.address
 		const args = msg.args
@@ -119,7 +168,18 @@ class AbletonOSCInstance extends InstanceBase {
 		this.log('debug', `OSC Received: ${address} ${JSON.stringify(args)}`)
 		this.setVariableValues({ last_message: address })
 
-		if (address === '/live/clip/get/name') {
+		if (address === '/live/clip/get/gain') {
+			// args: [track, clip, gain]
+			const track = args[0].value
+			const clip = args[1].value
+			const gain = args[2].value
+			
+			const id = `${track}_${clip}`
+			if (this.fadingClips[id] && this.fadingClips[id].state === 'init') {
+				this.startFade(id, gain)
+			}
+
+		} else if (address === '/live/clip/get/name') {
 			// args: [track, clip, name]
 			const track = args[0].value + 1
 			const clip = args[1].value + 1
