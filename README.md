@@ -85,8 +85,8 @@ Buttons displaying real-time track audio levels:
 ### Category: Device - Toggle
 
 - **Device Toggle**: Toggles a device (On/Off) on a specific track.
-    - Displays device name.
-    - **Green Background** when the device is On.
+  - Displays device name.
+  - **Green Background** when the device is On.
 
 ### Category: Device - Select and Control
 
@@ -112,10 +112,10 @@ A set of generic buttons to control the *currently selected* parameter (see Acti
 - **Refresh Clip Info**: Forces an update of names and colors for a specific clip.
 - **Scan Project**: Updates the entire module state from Ableton.
 - **Device Actions**:
-    - **Device Toggle**: Toggles a device on/off.
-    - **Set Parameter Value**: Sets a specific value for a parameter.
-    - **Step Parameter**: Increments/Decrements a parameter value.
-    - **Select Device Parameter**: Selects a parameter for the "Select and Control" presets.
+  - **Device Toggle**: Toggles a device on/off.
+  - **Set Parameter Value**: Sets a specific value for a parameter.
+  - **Step Parameter**: Increments/Decrements a parameter value.
+  - **Select Device Parameter**: Selects a parameter for the "Select and Control" presets.
 
 #### Note: "Create Variable for this parameter?"
 
