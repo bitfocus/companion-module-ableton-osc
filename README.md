@@ -147,3 +147,10 @@ When using actions like **Set Parameter Value** or **Step Parameter**, you will 
   - Check that no firewall is blocking UDP ports 11000 and 11001.
 - **Module disconnects/reconnects?**
   - Check Companion logs. If it persists, check your network configuration.
+
+## Support
+
+Enjoying this module? Feel free to buy me a coffee! ☕
+
+<a href="https://www.buymeacoffee.com/matlantin" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 60px !important;width: 217px !important;" ></a>
+
