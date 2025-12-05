@@ -1,6 +1,11 @@
 module.exports = async function (self) {
 	const variables = [
-		{ variableId: 'last_message', name: 'Last OSC Message' }
+		{ variableId: 'last_message', name: 'Last OSC Message' },
+		{ variableId: 'selected_parameter_track', name: 'Selected Parameter Track' },
+		{ variableId: 'selected_parameter_device', name: 'Selected Parameter Device' },
+		{ variableId: 'selected_parameter_num', name: 'Selected Parameter Number' },
+		{ variableId: 'selected_parameter_value', name: 'Selected Parameter Value' },
+		{ variableId: 'selected_parameter_name', name: 'Selected Parameter Name' }
 	]
 
 	const numTracks = self.numTracks || 8

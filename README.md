@@ -53,41 +53,72 @@ The module automatically generates presets to help you get started quickly.
 ### Category: Utility
 *   **Scan Project**: **(Essential)** Scans the current Ableton project to update track/scene counts, names, and colors.
 
-### Category: Clips
+### Category: Clip Fire
 A grid of buttons (default 8 tracks x 8 scenes) that allows you to:
 *   **Fire a clip** (Press).
 *   **Display the clip name** as the button name.
 *   **Display the clip color** as the button background.
 *   **Blink** when the clip is playing.
 
-### Category: Tracks
+### Category: Clip Stop
+*   **Stop Clip**: Stops the specific clip on a track.
+    *   Displays "STOP" + Clip Name.
+    *   **Red Background**.
+
+### Category: Clip - Fade
+*   **Fade In Clip**: Fires a clip with a volume fade-in.
+*   **Fade Out Clip**: Fades out volume and stops the clip.
+
+### Category: Track - Meter & Mute
 Buttons to control tracks:
 *   **Mute Track**: Toggles track mute.
     *   Displays track name.
     *   **Red Background** when muted.
     *   **Visual Meter** (Right bar) showing real-time audio level.
 
-### Category: Tracks Stop
+### Category: Track - Stop
 *   **Stop Track**: Stops playing all clips on a specific track. Displays the track name.
 
-### Category: Meters
+### Category: Track - Fade
+*   **Fade In Track**: Fades in the track volume.
+*   **Fade Out Track**: Fades out the track volume.
+
+### Category: Track - Meter
 Buttons displaying real-time track audio levels:
 *   **Meter Track**: Displays the track name and a dynamic bargraph.
+
+### Category: Device - Select and Control
+Presets for controlling device parameters:
+*   **Select Parameter**: Selects a parameter for control.
+*   **Step Up/Down**: Increments or decrements the selected parameter value.
+*   **Set ON/OFF**: Sets the selected parameter to min or max.
+*   **Toggle**: Toggles the selected parameter.
+*   **Value Display**: Shows the current value of the selected parameter.
+
+### Category: Device - Toggle
+*   **Device Toggle**: Toggles a specific device parameter (e.g., On/Off) directly.
 
 ## Features & Feedbacks
 
 ### Actions
-*   **Fire Clip**: Triggers a clip (Track, Scene).
-*   **Stop Clip**: Stops the current clip on a track.
-*   **Stop Track**: Stops all clips on a track.
-*   **Mute Track**: Toggles, Mutes, or Unmutes a track.
-*   **Fade Out and Stop Clip**: Fades out volume and stops the clip.
-*   **Fade In and Fire Clip**: Fades in volume and fires the clip.
-*   **Fade Out and Stop Track**: Fades out track volume.
-*   **Fade In Track Volume**: Fades in track volume.
-*   **Fade Track by State**: Advanced fading based on a variable state.
-*   **Refresh Clip Info**: Forces an update of names and colors for a specific clip.
-*   **Scan Project**: Updates the entire module state from Ableton.
+*   **Clip - Fire**: Triggers a clip (Select by Name).
+*   **Clip - Stop**: Stops a clip (Select by Name).
+*   **Clip - Fade Out and Stop**: Fades out volume and stops the clip.
+*   **Clip - Fire and Fade In**: Fades in volume and fires the clip.
+*   **Clip - Refresh Info**: Forces an update of names and colors for a specific clip.
+*   **Track - Stop**: Stops all clips on a track.
+*   **Track - Mute**: Toggles, Mutes, or Unmutes a track.
+*   **Track - Fade Out and Stop**: Fades out track volume.
+*   **Track - Fade In**: Fades in track volume.
+*   **Track - Fade by State**: Advanced fading based on a variable state.
+*   **Device - Toggle**: Toggles a specific device parameter.
+*   **Device - Set Parameter Value**: Sets a specific parameter to a value.
+*   **Device - Step Parameter Value**: Steps a parameter value up or down.
+*   **Device - Select Parameter**: Selects a parameter for the "Selected Parameter" actions.
+*   **Selected Device Parameter - Toggle**: Toggles the currently selected parameter.
+*   **Selected Device Parameter - Step**: Steps the currently selected parameter.
+*   **Selected Device Parameter - Set Value**: Sets the currently selected parameter.
+*   **Project - Scan**: Updates the entire module state from Ableton.
 
 ### Feedbacks
 *   **Clip Color**: Changes button background to match Ableton clip color.
@@ -95,13 +126,19 @@ Buttons displaying real-time track audio levels:
 *   **Track Meter Level**: Changes color if audio level exceeds a threshold.
 *   **Track Mute**: Changes background color (Red) if track is muted.
 *   **Track Meter Visual**: Displays a real-time PNG bargraph on the button (Stereo Left, Stereo Right, or Full).
+*   **Device (Plugin) Active**: Changes color if a device parameter is active (> 0.5).
+*   **Selected Parameter Active**: Highlights the button if its parameter is currently selected.
 
 ## Variables
 
-*   `$(ableton:clip_name_TRACK_CLIP)`: Clip name (e.g., `$(ableton:clip_name_1_1)`).
-*   `$(ableton:track_name_TRACK)`: Track name.
-*   `$(ableton:track_meter_TRACK)`: Current track audio level (0.0 to 1.0).
-*   `$(ableton:track_mute_TRACK)`: Track mute state (1 or 0).
+The module exposes the following variables:
+*   `$(ableton:last_message)`: Last received OSC message.
+*   `$(ableton:track_name_X)`: Name of Track X.
+*   `$(ableton:track_meter_X)`: Current level of Track X.
+*   `$(ableton:track_mute_X)`: Mute state of Track X.
+*   `$(ableton:clip_name_T_S)`: Name of Clip at Track T, Scene S.
+*   `$(ableton:selected_parameter_name)`: Name of the currently selected parameter.
+*   `$(ableton:selected_parameter_value)`: Value of the currently selected parameter.
 
 ## Troubleshooting
 

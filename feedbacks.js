@@ -9,23 +9,19 @@ module.exports = async function (self) {
 			description: 'Change button color to match Ableton Clip Color',
 			options: [
 				{
-					type: 'number',
-					label: 'Track Index',
-					id: 'track',
-					default: 1,
-					min: 1
-				},
-				{
-					type: 'number',
-					label: 'Clip Index',
-					id: 'clip',
-					default: 1,
-					min: 1
+					type: 'dropdown',
+					label: 'Clip',
+					id: 'clipId',
+					choices: self.clipChoices,
+					default: self.clipChoices && self.clipChoices.length > 0 ? self.clipChoices[0].id : '1_1',
+					required: true,
+					minChoicesForSearch: 0
 				}
 			],
 			callback: (feedback) => {
-				const track = feedback.options.track
-				const clip = feedback.options.clip
+				const [trackStr, clipStr] = feedback.options.clipId.split('_')
+				const track = parseInt(trackStr)
+				const clip = parseInt(clipStr)
 				const color = self.clipColors[`${track}_${clip}`]
 				
 				if (color !== undefined) {
@@ -51,23 +47,19 @@ module.exports = async function (self) {
 			},
 			options: [
 				{
-					type: 'number',
-					label: 'Track Index',
-					id: 'track',
-					default: 1,
-					min: 1
-				},
-				{
-					type: 'number',
-					label: 'Clip Index',
-					id: 'clip',
-					default: 1,
-					min: 1
+					type: 'dropdown',
+					label: 'Clip',
+					id: 'clipId',
+					choices: self.clipChoices,
+					default: self.clipChoices && self.clipChoices.length > 0 ? self.clipChoices[0].id : '1_1',
+					required: true,
+					minChoicesForSearch: 0
 				}
 			],
 			callback: (feedback) => {
-				const track = feedback.options.track
-				const clip = feedback.options.clip
+				const [trackStr, clipStr] = feedback.options.clipId.split('_')
+				const track = parseInt(trackStr)
+				const clip = parseInt(clipStr)
 				const isPlaying = self.clipPlaying[`${track}_${clip}`] === true || self.clipPlaying[`${track}_${clip}`] === 1
 				
 				return isPlaying && self.blinkState
@@ -82,11 +74,12 @@ module.exports = async function (self) {
 			},
 			options: [
 				{
-					type: 'number',
-					label: 'Track Index',
+					type: 'dropdown',
+					label: 'Track',
 					id: 'track',
-					default: 1,
-					min: 1
+					choices: self.trackChoices,
+					default: self.trackChoices[0].id,
+					required: true
 				},
 				{
 					type: 'number',
@@ -111,11 +104,12 @@ module.exports = async function (self) {
 			},
 			options: [
 				{
-					type: 'number',
-					label: 'Track Index',
+					type: 'dropdown',
+					label: 'Track',
 					id: 'track',
-					default: 1,
-					min: 1
+					choices: self.trackChoices,
+					default: self.trackChoices[0].id,
+					required: true
 				}
 			],
 			callback: (feedback) => {
@@ -134,32 +128,17 @@ module.exports = async function (self) {
 			},
 			options: [
 				{
-					type: 'number',
-					label: 'Track Index',
-					id: 'track',
-					default: 1,
-					min: 1
-				},
-				{
-					type: 'number',
-					label: 'Device Index',
-					id: 'device',
-					default: 1,
-					min: 1
-				},
-				{
-					type: 'number',
-					label: 'Parameter Index (Default 1 = On/Off)',
-					id: 'parameter',
-					default: 1,
-					min: 1
+					type: 'dropdown',
+					label: 'Parameter (Scan project first)',
+					id: 'parameterId',
+					choices: self.knownParameters && self.knownParameters.length > 0 ? self.knownParameters : [{ id: '0_0_0', label: 'No parameters found' }],
+					default: self.knownParameters && self.knownParameters.length > 0 ? self.knownParameters[0].id : '0_0_0',
+					minChoicesForSearch: 0
 				}
 			],
 			callback: (feedback) => {
-				const track = feedback.options.track
-				const device = feedback.options.device
-				const parameter = feedback.options.parameter
-				const value = self.deviceParameters[`${track}_${device}_${parameter}`]
+				if (!feedback.options.parameterId || feedback.options.parameterId === '0_0_0') return false
+				const value = self.deviceParameters[feedback.options.parameterId]
 				return value > 0.5
 			}
 		},
@@ -169,11 +148,12 @@ module.exports = async function (self) {
 			description: 'Show a visual meter bar on the button',
 			options: [
 				{
-					type: 'number',
-					label: 'Track Index',
+					type: 'dropdown',
+					label: 'Track',
 					id: 'track',
-					default: 1,
-					min: 1
+					choices: self.trackChoices,
+					default: self.trackChoices[0].id,
+					required: true
 				},
 				{
 					type: 'dropdown',
@@ -194,11 +174,6 @@ module.exports = async function (self) {
 				const levelL = self.trackLevelsLeft[track] || 0
 				const levelR = self.trackLevelsRight[track] || 0
 				
-				// self.log('info', `Feedback check: Track ${track} Level ${level} Position ${position}`)
-				// if (Math.random() < 0.05) {
-				// 	self.log('info', `Feedback render: Track ${track} L:${levelL} R:${levelR} Pos ${position}`)
-				// }
-
 				const pngBuffer = await getMeterPng(levelL, levelR, position)
 				
 				if (pngBuffer) {
@@ -207,6 +182,36 @@ module.exports = async function (self) {
 					}
 				}
 				return {}
+			}
+		},
+		selected_parameter_active: {
+			type: 'boolean',
+			name: 'Selected Parameter Active',
+			description: 'Change color if this parameter is currently selected for control',
+			defaultStyle: {
+				bgcolor: combineRgb(255, 165, 0) // Orange
+			},
+			options: [
+				{
+					type: 'dropdown',
+					label: 'Parameter',
+					id: 'parameterId',
+					choices: self.knownParameters && self.knownParameters.length > 0 ? self.knownParameters : [{ id: '0_0_0', label: 'No parameters found' }],
+					default: self.knownParameters && self.knownParameters.length > 0 ? self.knownParameters[0].id : '0_0_0',
+					minChoicesForSearch: 0
+				}
+			],
+			callback: (feedback) => {
+				if (!self.selectedParameter) return false
+				if (!feedback.options.parameterId) return false
+				
+				const [track, device, parameter] = feedback.options.parameterId.split('_').map(Number)
+				
+				return (
+					self.selectedParameter.track === track &&
+					self.selectedParameter.device === device &&
+					self.selectedParameter.parameter === parameter
+				)
 			}
 		}
 	})

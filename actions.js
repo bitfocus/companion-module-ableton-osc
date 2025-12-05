@@ -1,30 +1,22 @@
 module.exports = function (self) {
 	self.setActionDefinitions({
 		fire_clip: {
-			name: 'Fire Clip',
+			name: 'Clip - Fire',
 			options: [
 				{
-					type: 'number',
-					label: 'Track Index',
-					id: 'track',
-					min: 1,
-					max: 1000,
-					default: 1,
-					required: true
-				},
-				{
-					type: 'number',
-					label: 'Clip Index',
-					id: 'clip',
-					min: 1,
-					max: 1000,
-					default: 1,
-					required: true
+					type: 'dropdown',
+					label: 'Clip',
+					id: 'clipId',
+					choices: self.clipChoices,
+					default: self.clipChoices && self.clipChoices.length > 0 ? self.clipChoices[0].id : '1_1',
+					required: true,
+					minChoicesForSearch: 0
 				}
 			],
 			callback: async (event) => {
-				const track = event.options.track - 1
-				const clip = event.options.clip - 1
+				const [trackStr, clipStr] = event.options.clipId.split('_')
+				const track = parseInt(trackStr) - 1
+				const clip = parseInt(clipStr) - 1
 				self.sendOsc('/live/clip_slot/fire', [
 					{
 						type: 'i',
@@ -38,30 +30,22 @@ module.exports = function (self) {
 			}
 		},
 		stop_clip: {
-			name: 'Stop Clip',
+			name: 'Clip - Stop',
 			options: [
 				{
-					type: 'number',
-					label: 'Track Index',
-					id: 'track',
-					min: 1,
-					max: 1000,
-					default: 1,
-					required: true
-				},
-				{
-					type: 'number',
-					label: 'Clip Index',
-					id: 'clip',
-					min: 1,
-					max: 1000,
-					default: 1,
-					required: true
+					type: 'dropdown',
+					label: 'Clip',
+					id: 'clipId',
+					choices: self.clipChoices,
+					default: self.clipChoices && self.clipChoices.length > 0 ? self.clipChoices[0].id : '1_1',
+					required: true,
+					minChoicesForSearch: 0
 				}
 			],
 			callback: async (event) => {
-				const track = event.options.track - 1
-				const clip = event.options.clip - 1
+				const [trackStr, clipStr] = event.options.clipId.split('_')
+				const track = parseInt(trackStr) - 1
+				const clip = parseInt(clipStr) - 1
 				self.sendOsc('/live/clip/stop', [
 					{
 						type: 'i',
@@ -75,15 +59,14 @@ module.exports = function (self) {
 			}
 		},
 		stop_track: {
-			name: 'Stop Track',
+			name: 'Track - Stop',
 			options: [
 				{
-					type: 'number',
-					label: 'Track Index',
+					type: 'dropdown',
+					label: 'Track',
 					id: 'track',
-					min: 1,
-					max: 1000,
-					default: 1,
+					choices: self.trackChoices,
+					default: self.trackChoices[0].id,
 					required: true
 				}
 			],
@@ -98,15 +81,14 @@ module.exports = function (self) {
 			}
 		},
 		mute_track: {
-			name: 'Mute Track',
+			name: 'Track - Mute',
 			options: [
 				{
-					type: 'number',
-					label: 'Track Index',
+					type: 'dropdown',
+					label: 'Track',
 					id: 'track',
-					min: 1,
-					max: 1000,
-					default: 1,
+					choices: self.trackChoices,
+					default: self.trackChoices[0].id,
 					required: true
 				},
 				{
@@ -147,24 +129,14 @@ module.exports = function (self) {
 			}
 		},
 		device_toggle: {
-			name: 'Device (Plugin) Toggle',
+			name: 'Device - Toggle',
 			options: [
 				{
-					type: 'number',
-					label: 'Track Index',
-					id: 'track',
-					min: 1,
-					max: 1000,
-					default: 1,
-					required: true
-				},
-				{
-					type: 'number',
-					label: 'Device Index',
+					type: 'dropdown',
+					label: 'Device',
 					id: 'device',
-					min: 1,
-					max: 100,
-					default: 1,
+					choices: self.deviceChoices,
+					default: self.deviceChoices[0].id,
 					required: true
 				},
 				{
@@ -189,8 +161,9 @@ module.exports = function (self) {
 				}
 			],
 			callback: async (event) => {
-				const track = event.options.track - 1
-				const device = event.options.device - 1
+				const [trackStr, deviceStr] = event.options.device.split('_')
+				const track = parseInt(trackStr) - 1
+				const device = parseInt(deviceStr) - 1
 				const parameter = event.options.parameter - 1
 				let state = event.options.state
 				
@@ -203,7 +176,7 @@ module.exports = function (self) {
 				])
 
 				if (state === 'toggle') {
-					const current = self.deviceParameters[`${event.options.track}_${event.options.device}_${event.options.parameter}`]
+					const current = self.deviceParameters[`${track + 1}_${device + 1}_${parameter + 1}`]
 					// If current is undefined, assume it's on (1) so we turn it off, or vice versa. 
 					// Safer to assume 0 if unknown? Or maybe we can't toggle if unknown.
 					// Let's assume 0 if undefined.
@@ -221,26 +194,351 @@ module.exports = function (self) {
 				])
 			}
 		},
-		fade_stop_clip: {
-			name: 'Fade Out and Stop Clip',
+		device_set_parameter: {
+			name: 'Device - Set Parameter Value',
 			options: [
 				{
-					type: 'number',
-					label: 'Track Index',
-					id: 'track',
-					min: 1,
-					max: 1000,
-					default: 1,
+					type: 'dropdown',
+					label: 'Parameter (Scan project first)',
+					id: 'parameterId',
+					choices: self.knownParameters && self.knownParameters.length > 0 ? self.knownParameters : [{ id: '0_0_0', label: 'No parameters found - Scan Project' }],
+					default: self.knownParameters && self.knownParameters.length > 0 ? self.knownParameters[0].id : '0_0_0',
+					minChoicesForSearch: 0
+				},
+				{
+					type: 'textinput',
+					label: 'Value (0-100)',
+					id: 'value',
+					default: '50',
 					required: true
 				},
 				{
-					type: 'number',
-					label: 'Clip Index',
-					id: 'clip',
-					min: 1,
-					max: 1000,
-					default: 1,
+					type: 'checkbox',
+					label: 'Create Variable for this parameter?',
+					id: 'create_variable',
+					default: false
+				}
+			],
+			callback: async (event) => {
+				const paramId = event.options.parameterId
+				if (!paramId || paramId === '0_0_0') {
+					self.log('warn', 'No parameter selected')
+					return
+				}
+				const [trackStr, deviceStr, parameterStr] = paramId.split('_')
+				const track = parseInt(trackStr) - 1
+				const device = parseInt(deviceStr) - 1
+				const parameter = parseInt(parameterStr) - 1
+				const value = parseFloat(event.options.value) / 100.0
+				
+				if (event.options.create_variable) {
+					const varId = `device_param_${track + 1}_${device + 1}_${parameter + 1}`
+					
+					if (!self.monitoredDeviceParameters.has(varId)) {
+						self.monitoredDeviceParameters.add(varId)
+						
+						const exists = self.variableDefinitions.find(v => v.variableId === varId)
+						if (!exists) {
+							const paramObj = self.knownParameters.find(p => p.id === paramId)
+							const paramName = paramObj ? paramObj.label : `Device Param ${track + 1}-${device + 1}-${parameter + 1}`
+							
+							self.variableDefinitions.push({
+								variableId: varId,
+								name: paramName
+							})
+							self.setVariableDefinitions(self.variableDefinitions)
+						}
+						
+						self.sendOsc('/live/device/start_listen/parameter/value', [
+							{ type: 'i', value: track },
+							{ type: 'i', value: device },
+							{ type: 'i', value: parameter }
+						])
+						
+						self.activeParameterListeners.add(`${track}_${device}_${parameter}`)
+					}
+				}
+				
+				self.sendOsc('/live/device/set/parameter/value', [
+					{ type: 'i', value: track },
+					{ type: 'i', value: device },
+					{ type: 'i', value: parameter },
+					{ type: 'f', value: value }
+				])
+			}
+		},
+		device_parameter_step: {
+			name: 'Device - Step Parameter Value (Rotary/Button)',
+			options: [
+				{
+					type: 'dropdown',
+					label: 'Parameter (Scan project first)',
+					id: 'parameterId',
+					choices: self.knownParameters && self.knownParameters.length > 0 ? self.knownParameters : [{ id: '0_0_0', label: 'No parameters found - Scan Project' }],
+					default: self.knownParameters && self.knownParameters.length > 0 ? self.knownParameters[0].id : '0_0_0',
+					minChoicesForSearch: 0
+				},
+				{
+					type: 'textinput',
+					label: 'Step (e.g. 1, 5, -5) (Scale 0-100)',
+					id: 'step',
+					default: '1',
 					required: true
+				},
+				{
+					type: 'checkbox',
+					label: 'Create Variable for this parameter?',
+					id: 'create_variable',
+					default: false
+				}
+			],
+			callback: async (event) => {
+				const paramId = event.options.parameterId
+				if (!paramId || paramId === '0_0_0') {
+					self.log('warn', 'No parameter selected')
+					return
+				}
+				const [trackStr, deviceStr, parameterStr] = paramId.split('_')
+				const track = parseInt(trackStr) - 1
+				const device = parseInt(deviceStr) - 1
+				const parameter = parseInt(parameterStr) - 1
+				const step = parseFloat(event.options.step) / 100.0
+				
+				self.sendOsc('/live/device/start_listen/parameter/value', [
+					{ type: 'i', value: track },
+					{ type: 'i', value: device },
+					{ type: 'i', value: parameter }
+				])
+
+				if (event.options.create_variable) {
+					const varId = `device_param_${track + 1}_${device + 1}_${parameter + 1}`
+					
+					if (!self.monitoredDeviceParameters.has(varId)) {
+						self.monitoredDeviceParameters.add(varId)
+						
+						const exists = self.variableDefinitions.find(v => v.variableId === varId)
+						if (!exists) {
+							const paramObj = self.knownParameters.find(p => p.id === paramId)
+							const paramName = paramObj ? paramObj.label : `Device Param ${track + 1}-${device + 1}-${parameter + 1}`
+							
+							self.variableDefinitions.push({
+								variableId: varId,
+								name: paramName
+							})
+							self.setVariableDefinitions(self.variableDefinitions)
+						}
+						
+						self.activeParameterListeners.add(`${track}_${device}_${parameter}`)
+					}
+				}
+
+				const key = `${track + 1}_${device + 1}_${parameter + 1}`
+				const current = self.deviceParameters[key]
+				
+				if (current !== undefined) {
+					let newValue = current + step
+					newValue = Math.max(0.0, Math.min(1.0, newValue))
+					
+					self.sendOsc('/live/device/set/parameter/value', [
+						{ type: 'i', value: track },
+						{ type: 'i', value: device },
+						{ type: 'i', value: parameter },
+						{ type: 'f', value: newValue }
+					])
+				} else {
+					self.log('warn', `Parameter ${key} value unknown. Listening started. Try again.`)
+				}
+			}
+		},
+		select_device_parameter: {
+			name: 'Device - Select Parameter',
+			options: [
+				{
+					type: 'dropdown',
+					label: 'Parameter (Scan project first)',
+					id: 'parameterId',
+					choices: self.knownParameters && self.knownParameters.length > 0 ? self.knownParameters : [{ id: '0_0_0', label: 'No parameters found - Scan Project' }],
+					default: self.knownParameters && self.knownParameters.length > 0 ? self.knownParameters[0].id : '0_0_0',
+					minChoicesForSearch: 0
+				},
+				{
+					type: 'checkbox',
+					label: 'Create Variable for this parameter?',
+					id: 'createVariable',
+					default: false
+				}
+			],
+			callback: async (event) => {
+				const paramId = event.options.parameterId
+				if (!paramId || paramId === '0_0_0') {
+					self.log('warn', 'No parameter selected')
+					return
+				}
+
+				const [track, device, parameter] = paramId.split('_').map(Number)
+				
+				self.selectedParameter = { track, device, parameter }
+				
+				// Find the label to set the name variable
+				const paramObj = self.knownParameters.find(p => p.id === paramId)
+				const paramName = paramObj ? paramObj.label : `T${track} D${device} P${parameter}`
+
+				self.setVariableValues({
+					selected_parameter_track: track,
+					selected_parameter_device: device,
+					selected_parameter_num: parameter,
+					selected_parameter_value: '...', // Reset while fetching
+					selected_parameter_name: paramName
+				})
+
+				// Handle custom variable creation
+				if (event.options.createVariable) {
+					// Sanitize name for variable ID (remove spaces, special chars)
+					// We use the full label but sanitized
+					// Actually, user asked for "variable with the name of the function and its value"
+					// Let's create a variable named based on the parameter name, e.g. "param_Track_Device_ParamName"
+					// But variable IDs should be simple. Let's stick to the ID based one for reliability: device_param_T_D_P
+					// And maybe a friendly named one? No, dynamic variable names are hard to manage.
+					// Let's use the standard ID we already support in main.js: device_param_T_D_P
+					// We just need to ensure it's "monitored" so main.js updates it.
+					
+					const varId = `device_param_${track}_${device}_${parameter}`
+					self.checkVariableDefinition(varId, paramName)
+					
+					// Add to monitored set so main.js updates it
+					self.monitoredDeviceParameters.add(varId)
+				}
+				
+				// Start listening
+				self.sendOsc('/live/device/start_listen/parameter/value', [
+					{ type: 'i', value: track - 1 },
+					{ type: 'i', value: device - 1 },
+					{ type: 'i', value: parameter - 1 }
+				])
+				
+				// Request initial string value
+				self.sendOsc('/live/device/get/parameter/value_string', [
+					{ type: 'i', value: track - 1 },
+					{ type: 'i', value: device - 1 },
+					{ type: 'i', value: parameter - 1 }
+				])
+				
+				self.checkFeedbacks('selected_parameter_active')
+			}
+		},
+		toggle_selected_device_parameter: {
+			name: 'Selected Device Parameter - Toggle',
+			options: [],
+			callback: async (event) => {
+				if (!self.selectedParameter) {
+					self.log('warn', 'No parameter selected for toggling')
+					return
+				}
+				
+				const track = self.selectedParameter.track - 1
+				const device = self.selectedParameter.device - 1
+				const parameter = self.selectedParameter.parameter - 1
+				
+				// Use last known value or default to 0
+				const current = self.selectedParameter.lastValue || 0
+				
+				// Toggle logic: if > 0.5 (50%), go to 0. Else go to 1 (100%)
+				const newValue = current > 0.5 ? 0.0 : 1.0
+				
+				self.sendOsc('/live/device/set/parameter/value', [
+					{ type: 'i', value: track },
+					{ type: 'i', value: device },
+					{ type: 'i', value: parameter },
+					{ type: 'f', value: newValue }
+				])
+			}
+		},
+		step_selected_device_parameter: {
+			name: 'Selected Device Parameter - Step (+/-)',
+			options: [
+				{
+					type: 'textinput',
+					label: 'Step (e.g. 1, 5, -5) (Scale 0-100)',
+					id: 'step',
+					default: '1',
+					required: true
+				}
+			],
+			callback: async (event) => {
+				if (!self.selectedParameter) {
+					self.log('warn', 'No parameter selected for stepping')
+					return
+				}
+				
+				const track = self.selectedParameter.track - 1
+				const device = self.selectedParameter.device - 1
+				const parameter = self.selectedParameter.parameter - 1
+				const step = parseFloat(event.options.step) / 100.0
+				
+				const key = `${self.selectedParameter.track}_${self.selectedParameter.device}_${self.selectedParameter.parameter}`
+				const current = self.deviceParameters[key]
+				
+				if (current !== undefined) {
+					let newValue = current + step
+					newValue = Math.max(0.0, Math.min(1.0, newValue))
+					
+					self.sendOsc('/live/device/set/parameter/value', [
+						{ type: 'i', value: track },
+						{ type: 'i', value: device },
+						{ type: 'i', value: parameter },
+						{ type: 'f', value: newValue }
+					])
+				} else {
+					// If unknown, try to start listening again
+					self.sendOsc('/live/device/start_listen/parameter/value', [
+						{ type: 'i', value: track },
+						{ type: 'i', value: device },
+						{ type: 'i', value: parameter }
+					])
+				}
+			}
+		},
+		set_selected_device_parameter: {
+			name: 'Selected Device Parameter - Set Value',
+			options: [
+				{
+					type: 'textinput',
+					label: 'Value (0-100)',
+					id: 'value',
+					default: '50',
+					required: true
+				}
+			],
+			callback: async (event) => {
+				if (!self.selectedParameter) {
+					self.log('warn', 'No parameter selected for setting value')
+					return
+				}
+				
+				const track = self.selectedParameter.track - 1
+				const device = self.selectedParameter.device - 1
+				const parameter = self.selectedParameter.parameter - 1
+				const value = parseFloat(event.options.value) / 100.0
+				
+				self.sendOsc('/live/device/set/parameter/value', [
+					{ type: 'i', value: track },
+					{ type: 'i', value: device },
+					{ type: 'i', value: parameter },
+					{ type: 'f', value: value }
+				])
+			}
+		},
+		fade_stop_clip: {
+			name: 'Clip - Fade Out and Stop',
+			options: [
+				{
+					type: 'dropdown',
+					label: 'Clip',
+					id: 'clipId',
+					choices: self.clipChoices,
+					default: self.clipChoices && self.clipChoices.length > 0 ? self.clipChoices[0].id : '1_1',
+					required: true,
+					minChoicesForSearch: 0
 				},
 				{
 					type: 'number',
@@ -253,8 +551,9 @@ module.exports = function (self) {
 				}
 			],
 			callback: async (event) => {
-				const track = event.options.track - 1
-				const clip = event.options.clip - 1
+				const [trackStr, clipStr] = event.options.clipId.split('_')
+				const track = parseInt(trackStr) - 1
+				const clip = parseInt(clipStr) - 1
 				const duration = event.options.duration
 
 				const id = `clip_${track}_${clip}`
@@ -291,25 +590,16 @@ module.exports = function (self) {
 			}
 		},
 		fade_fire_clip: {
-			name: 'Fade In and Fire Clip',
+			name: 'Clip - Fire and Fade In',
 			options: [
 				{
-					type: 'number',
-					label: 'Track Index',
-					id: 'track',
-					min: 1,
-					max: 1000,
-					default: 1,
-					required: true
-				},
-				{
-					type: 'number',
-					label: 'Clip Index',
-					id: 'clip',
-					min: 1,
-					max: 1000,
-					default: 1,
-					required: true
+					type: 'dropdown',
+					label: 'Clip',
+					id: 'clipId',
+					choices: self.clipChoices,
+					default: self.clipChoices && self.clipChoices.length > 0 ? self.clipChoices[0].id : '1_1',
+					required: true,
+					minChoicesForSearch: 0
 				},
 				{
 					type: 'number',
@@ -322,8 +612,9 @@ module.exports = function (self) {
 				}
 			],
 			callback: async (event) => {
-				const track = event.options.track - 1
-				const clip = event.options.clip - 1
+				const [trackStr, clipStr] = event.options.clipId.split('_')
+				const track = parseInt(trackStr) - 1
+				const clip = parseInt(clipStr) - 1
 				const duration = event.options.duration
 
 				const id = `clip_${track}_${clip}`
@@ -359,15 +650,14 @@ module.exports = function (self) {
 			}
 		},
 		fade_stop_track: {
-			name: 'Fade Out and Stop Track',
+			name: 'Track - Fade Out and Stop',
 			options: [
 				{
-					type: 'number',
-					label: 'Track Index',
+					type: 'dropdown',
+					label: 'Track',
 					id: 'track',
-					min: 1,
-					max: 1000,
-					default: 1,
+					choices: self.trackChoices,
+					default: self.trackChoices[0].id,
 					required: true
 				},
 				{
@@ -415,15 +705,14 @@ module.exports = function (self) {
 			}
 		},
 		fade_in_track: {
-			name: 'Fade In Track Volume',
+			name: 'Track - Fade In',
 			options: [
 				{
-					type: 'number',
-					label: 'Track Index',
+					type: 'dropdown',
+					label: 'Track',
 					id: 'track',
-					min: 1,
-					max: 1000,
-					default: 1,
+					choices: self.trackChoices,
+					default: self.trackChoices[0].id,
 					required: true
 				},
 				{
@@ -471,7 +760,7 @@ module.exports = function (self) {
 			}
 		},
 		fade_track_toggle: {
-			name: 'Fade Track by State (Variable)',
+			name: 'Track - Fade by State of a variable',
 			options: [
 				{
 					type: 'textinput',
@@ -481,12 +770,11 @@ module.exports = function (self) {
 					useVariables: true
 				},
 				{
-					type: 'number',
-					label: 'Track Index',
+					type: 'dropdown',
+					label: 'Track',
 					id: 'track',
-					min: 1,
-					max: 1000,
-					default: 1,
+					choices: self.trackChoices,
+					default: self.trackChoices[0].id,
 					required: true
 				},
 				{
@@ -578,30 +866,22 @@ module.exports = function (self) {
 			}
 		},
 		refresh_clip_info: {
-			name: 'Refresh Clip Info',
+			name: 'Clip - Refresh Info',
 			options: [
 				{
-					type: 'number',
-					label: 'Track Index',
-					id: 'track',
-					min: 1,
-					max: 1000,
-					default: 1,
-					required: true
-				},
-				{
-					type: 'number',
-					label: 'Clip Index',
-					id: 'clip',
-					min: 1,
-					max: 1000,
-					default: 1,
-					required: true
+					type: 'dropdown',
+					label: 'Clip',
+					id: 'clipId',
+					choices: self.clipChoices,
+					default: self.clipChoices && self.clipChoices.length > 0 ? self.clipChoices[0].id : '1_1',
+					required: true,
+					minChoicesForSearch: 0
 				}
 			],
 			callback: async (event) => {
-				const track = event.options.track - 1
-				const clip = event.options.clip - 1
+				const [trackStr, clipStr] = event.options.clipId.split('_')
+				const track = parseInt(trackStr) - 1
+				const clip = parseInt(clipStr) - 1
 				
 				// Request Name
 				self.sendOsc('/live/clip/get/name', [
@@ -617,7 +897,7 @@ module.exports = function (self) {
 			}
 		},
 		scan_project: {
-			name: 'Scan Project',
+			name: 'Project - Scan',
 			options: [],
 			callback: async (event) => {
 				self.sendOsc('/live/song/get/num_tracks', [])

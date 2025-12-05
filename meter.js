@@ -29,6 +29,39 @@ async function generateCache() {
 		return 0x00FF00FF // Green
 	}
 
+	const borderColor = 0x666666FF
+	const bgColor = 0x000000FF
+
+	// Helper to draw a bordered bar
+	const drawBar = (img, x, w, level) => {
+		// Draw Border
+		for (let by = 0; by < height; by++) {
+			for (let bx = x; bx < x + w; bx++) {
+				// Border logic: edges of the rect
+				if (bx === x || bx === x + w - 1 || by === 0 || by === height - 1) {
+					img.setPixelColor(borderColor, bx, by)
+				} else {
+					img.setPixelColor(bgColor, bx, by)
+				}
+			}
+		}
+
+		// Draw Level
+		// Inner area: x+1, y+1, w-2, h-2
+		const innerH = height - 2
+		const barH = Math.floor(level * innerH)
+		
+		if (barH > 0) {
+			const yStart = (height - 1) - barH
+			for (let y = yStart; y < height - 1; y++) {
+				const color = getColor(y)
+				for (let bx = x + 1; bx < x + w - 1; bx++) {
+					img.setPixelColor(color, bx, y)
+				}
+			}
+		}
+	}
+
 	// Generate cached images
 	for (let i = 0; i <= steps; i++) {
 		const level = i / steps
@@ -44,29 +77,9 @@ async function generateCache() {
 				const img = new Jimp({ width: width, height: height, color: 0x00000000 })
 				const xBase = 0
 				
-				// Left Channel Bar (4px wide)
-				const barHL = Math.floor(levelL * height)
-				if (barHL > 0) {
-					const yStart = height - barHL
-					for (let y = yStart; y < height; y++) {
-						const color = getColor(y)
-						for (let x = xBase; x < xBase + 4; x++) {
-							img.setPixelColor(color, x, y)
-						}
-					}
-				}
-
-				// Right Channel Bar (4px wide, offset by 6px)
-				const barHR = Math.floor(levelR * height)
-				if (barHR > 0) {
-					const yStart = height - barHR
-					for (let y = yStart; y < height; y++) {
-						const color = getColor(y)
-						for (let x = xBase + 6; x < xBase + 10; x++) {
-							img.setPixelColor(color, x, y)
-						}
-					}
-				}
+				drawBar(img, xBase, 4, levelL)
+				drawBar(img, xBase + 6, 4, levelR)
+				
 				cache.stereoLeft[i][j] = await img.getBuffer(MIME_PNG)
 			}
 
@@ -75,59 +88,21 @@ async function generateCache() {
 				const img = new Jimp({ width: width, height: height, color: 0x00000000 })
 				const xBase = width - 10
 				
-				// Left Channel Bar (4px wide)
-				const barHL = Math.floor(levelL * height)
-				if (barHL > 0) {
-					const yStart = height - barHL
-					for (let y = yStart; y < height; y++) {
-						const color = getColor(y)
-						for (let x = xBase; x < xBase + 4; x++) {
-							img.setPixelColor(color, x, y)
-						}
-					}
-				}
+				drawBar(img, xBase, 4, levelL)
+				drawBar(img, xBase + 6, 4, levelR)
 
-				// Right Channel Bar (4px wide, offset by 6px)
-				const barHR = Math.floor(levelR * height)
-				if (barHR > 0) {
-					const yStart = height - barHR
-					for (let y = yStart; y < height; y++) {
-						const color = getColor(y)
-						for (let x = xBase + 6; x < xBase + 10; x++) {
-							img.setPixelColor(color, x, y)
-						}
-					}
-				}
 				cache.stereoRight[i][j] = await img.getBuffer(MIME_PNG)
 			}
 
-			// STEREO FULL (Split middle: L(35px) Gap(2px) R(35px))
+			// STEREO FULL (Centered, narrower bars)
+			// Left Bar: x=23, w=12 (Inner 10px)
+			// Right Bar: x=37, w=12 (Inner 10px)
 			{
 				const img = new Jimp({ width: width, height: height, color: 0x00000000 })
 				
-				// Left Channel
-				const barHL = Math.floor(levelL * height)
-				if (barHL > 0) {
-					const yStart = height - barHL
-					for (let y = yStart; y < height; y++) {
-						const color = getColor(y)
-						for (let x = 0; x < 35; x++) {
-							img.setPixelColor(color, x, y)
-						}
-					}
-				}
+				drawBar(img, 23, 12, levelL)
+				drawBar(img, 37, 12, levelR)
 
-				// Right Channel
-				const barHR = Math.floor(levelR * height)
-				if (barHR > 0) {
-					const yStart = height - barHR
-					for (let y = yStart; y < height; y++) {
-						const color = getColor(y)
-						for (let x = 37; x < 72; x++) {
-							img.setPixelColor(color, x, y)
-						}
-					}
-				}
 				cache.full[i][j] = await img.getBuffer(MIME_PNG)
 			}
 		}

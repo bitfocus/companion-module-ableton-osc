@@ -27,6 +27,11 @@ class AbletonOSCInstance extends InstanceBase {
 		this.blinkState = false
 		this.variableIds = new Set()
 		this.activeParameterListeners = new Set()
+		this.monitoredDeviceParameters = new Set()
+		this.selectedParameter = null
+		this.knownParameters = [] // Array of { id: 't_d_p', label: '...' }
+		this.sceneNames = {} // Store scene names
+		this.clipNames = {} // Store clip names
 	}
 
 	async init(config) {
@@ -440,6 +445,12 @@ class AbletonOSCInstance extends InstanceBase {
 			// Optionally add to definitions if not exists (simplified here)
 			this.checkVariableDefinition(varId, `Clip Name ${track}-${clip}`)
 			this.setVariableValues({ [varId]: name })
+			
+			// Store for dropdowns
+			this.clipNames[`${track}_${clip}`] = name
+			
+			// Update actions to refresh clip choices
+			this.initActions()
 
 		} else if (address === '/live/clip/get/color') {
 			// args: [track, clip, color]
@@ -477,6 +488,16 @@ class AbletonOSCInstance extends InstanceBase {
 			this.checkVariableDefinition(varId, `Track Name ${track}`)
 			this.setVariableValues({ [varId]: name })
 
+		} else if (address === '/live/scene/get/name') {
+			// args: [scene, name]
+			const scene = args[0].value + 1
+			const name = args[1].value
+			
+			this.sceneNames[scene] = name
+			
+			// Update actions to refresh scene choices
+			this.initActions()
+
 		} else if (address === '/live/track/get/mute') {
 			// args: [track, mute]
 			const track = args[0].value + 1
@@ -495,16 +516,53 @@ class AbletonOSCInstance extends InstanceBase {
 			this.deviceParameters[`${track}_${device}_${param}`] = value
 			this.checkFeedbacks('device_active')
 
+			// Update selected parameter state for toggle logic
+			if (this.selectedParameter && 
+				this.selectedParameter.track === track && 
+				this.selectedParameter.device === device && 
+				this.selectedParameter.parameter === param) {
+				this.selectedParameter.lastValue = value
+			}
+
+			// Request value_string to ensure we get the display value
+			const varId = `device_param_${track}_${device}_${param}`
+			const isSelected = this.selectedParameter && 
+				this.selectedParameter.track === track && 
+				this.selectedParameter.device === device && 
+				this.selectedParameter.parameter === param
+
+			if (this.monitoredDeviceParameters.has(varId) || isSelected) {
+				this.sendOsc('/live/device/get/parameter/value_string', [
+					{ type: 'i', value: track - 1 },
+					{ type: 'i', value: device - 1 },
+					{ type: 'i', value: param - 1 }
+				])
+			}
+
+		} else if (address === '/live/device/get/parameter/value_string') {
+			// args: [track, device, param, value_string]
+			const track = args[0].value + 1
+			const device = args[1].value + 1
+			const param = args[2].value + 1
+			const value = args[3].value
+			
+			const varId = `device_param_${track}_${device}_${param}`
+			if (this.monitoredDeviceParameters.has(varId)) {
+				this.setVariableValues({ [varId]: value })
+			}
+
+			if (this.selectedParameter && 
+				this.selectedParameter.track === track && 
+				this.selectedParameter.device === device && 
+				this.selectedParameter.parameter === param) {
+				this.setVariableValues({ selected_parameter_value: value })
+			}
+
 		} else if (address === '/live/track/get/output_meter_left' || address === '/live/track/get/output_meter_right') {
 			// args: [track, level]
 			const track = args[0].value + 1
 			const level = args[1].value
 			
-			// Log level occasionally to debug "0 or 1" issue
-			// if (Math.random() < 0.05) {
-			// 	this.log('info', `Meter sample: Track ${track} Level ${level} (Type: ${typeof level})`)
-			// }
-
 			if (address.endsWith('left')) {
 				this.trackLevelsLeft[track] = level
 			} else {
@@ -548,6 +606,48 @@ class AbletonOSCInstance extends InstanceBase {
 			
 			// Update presets to include these devices
 			this.initPresets()
+
+			// Fetch parameters for these devices
+			for (let i = 0; i < names.length; i++) {
+				this.sendOsc('/live/device/get/parameters/name', [
+					{ type: 'i', value: track - 1 },
+					{ type: 'i', value: i }
+				])
+			}
+
+		} else if (address === '/live/device/get/parameters/name') {
+			// args: [track, device, name1, name2, ...]
+			const track = args[0].value + 1
+			const device = args[1].value + 1
+			
+			// We need to store these to build the dropdown
+			// We can append to this.knownParameters
+			
+			// First, remove existing parameters for this device to avoid duplicates if re-scanned
+			const prefix = `${track}_${device}_`
+			this.knownParameters = this.knownParameters.filter(p => !p.id.startsWith(prefix))
+			
+			const trackName = this.getVariableValue(`track_name_${track}`) || `Track ${track}`
+			const deviceName = (this.deviceNames[track] && this.deviceNames[track][device - 1]) || `Device ${device}`
+
+			for (let i = 2; i < args.length; i++) {
+				const paramName = args[i].value
+				const paramIndex = i - 1 // args starts at 2 for param 1
+				
+				// Skip "Num" or empty names if any
+				if (!paramName) continue
+
+				this.knownParameters.push({
+					id: `${track}_${device}_${paramIndex}`,
+					label: `${trackName} > ${deviceName} > ${paramName}`
+				})
+			}
+			
+			// Update actions to refresh the dropdown
+			this.initActions()
+			this.initFeedbacks()
+			this.initPresets()
+
 		}
 		} catch (e) {
 			this.log('error', `Error processing OSC message: ${e.message}`)
@@ -637,6 +737,14 @@ class AbletonOSCInstance extends InstanceBase {
 					}
 				}
 			}
+
+			// Fetch Scene Names
+			for (let s = 0; s < sCount; s++) {
+				this.sendOsc('/live/scene/get/name', [
+					{ type: 'i', value: s }
+				])
+				msgCount++
+			}
 		}, 200)
 	}
 
@@ -649,6 +757,57 @@ class AbletonOSCInstance extends InstanceBase {
 	}
 
 	initActions() {
+		// Generate Track Choices
+		this.trackChoices = []
+		for (let i = 1; i <= this.numTracks; i++) {
+			const name = this.getVariableValue(`track_name_${i}`) || `Track ${i}`
+			this.trackChoices.push({ id: i, label: `${i}: ${name}` })
+		}
+
+		// Generate Scene Choices
+		this.sceneChoices = []
+		for (let i = 1; i <= this.numScenes; i++) {
+			const name = this.sceneNames[i] || `Scene ${i}`
+			this.sceneChoices.push({ id: i, label: `${i}: ${name}` })
+		}
+
+		// Generate Clip Choices (Combined Track + Clip)
+		this.clipChoices = []
+		// We iterate over tracks and scenes to build a flat list of clips
+		// This might be large, but it's the only way to show specific clip names
+		for (let t = 1; t <= this.numTracks; t++) {
+			const trackName = this.getVariableValue(`track_name_${t}`) || `Track ${t}`
+			for (let s = 1; s <= this.numScenes; s++) {
+				const clipName = this.clipNames[`${t}_${s}`]
+				// Only add if we have a name or just add all?
+				// Adding all 8x8 = 64 is fine. 100x100 = 10000 is too much.
+				// Let's limit to what we scanned.
+				// If clipName is undefined, it might be empty slot or not scanned.
+				// We'll add it anyway as "Track X - Scene Y" if no name.
+				const label = clipName ? `${trackName} - ${clipName}` : `${trackName} - Scene ${s}`
+				this.clipChoices.push({ id: `${t}_${s}`, label: label })
+			}
+		}
+
+		// Generate Device Choices
+		this.deviceChoices = []
+		for (const [trackId, names] of Object.entries(this.deviceNames)) {
+			if (names && Array.isArray(names)) {
+				names.forEach((name, index) => {
+					const deviceIndex = index + 1
+					this.deviceChoices.push({ 
+						id: `${trackId}_${deviceIndex}`, 
+						label: `T${trackId} > D${deviceIndex}: ${name}` 
+					})
+				})
+			}
+		}
+		
+		// Fallback if empty
+		if (this.trackChoices.length === 0) this.trackChoices.push({ id: 1, label: 'Track 1' })
+		if (this.sceneChoices.length === 0) this.sceneChoices.push({ id: 1, label: 'Scene 1' })
+		if (this.deviceChoices.length === 0) this.deviceChoices.push({ id: '1_1', label: 'T1 > D1' })
+
 		UpdateActions(this)
 	}
 
