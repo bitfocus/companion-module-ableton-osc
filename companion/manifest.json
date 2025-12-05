@@ -10,7 +10,10 @@
 		"ableton",
 		"live",
 		"osc",
-		"music"
+		"music",
+		"jingles",
+		"Audio follow Video",
+		"AfV"
 	],
 	"version": "1.0.0",
 	"license": "MIT",
