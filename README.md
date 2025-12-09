@@ -8,7 +8,7 @@ My main usage of Ableton Live in a broadcast workflow is to play out audio clips
 
 If you need to control Ableton Live as a music producer, [**AbleSet**](https://ableset.app/) and its [**Companion module**](https://github.com/matlantin/companion-module-ableset) might be a better fit.
 
-![Audio Follow Video Timeline](img/main_example.png)
+![Illustration](img/main_example.png)
 
 ## Documentation
 
