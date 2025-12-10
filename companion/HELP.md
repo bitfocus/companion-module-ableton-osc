@@ -3,6 +3,8 @@
 
 Welcome! This Companion module lets you control Ableton Live via OSC, with advanced visual feedback (clip names, colors, meters, etc.).
 
+![Main Example](https://raw.githubusercontent.com/matlantin/companion-module-ableton-osc/refs/heads/main/img/main_example.png)
+
 ## Quick Setup
 
 1. **Install the AbletonOSC script** in Ableton Live ([see documentation](https://github.com/ideoforms/AbletonOSC)).
@@ -28,4 +30,3 @@ Welcome! This Companion module lets you control Ableton Live via OSC, with advan
 
 For more details, check the [full documentation and Wiki](https://github.com/matlantin/companion-module-ableton-osc/wiki).
 
-![Main Example](../img/main_example.png)
