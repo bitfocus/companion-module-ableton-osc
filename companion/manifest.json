@@ -18,8 +18,8 @@
 	"version": "1.0.0",
 	"license": "MIT",
 	"description": "Control Ableton Live via OSC",
-	"repository": "https://github.com/test/companion-module-ableton-osc",
-	"bugs": "https://github.com/test/companion-module-ableton-osc/issues",
+	"repository": "https://github.com/bitfocus/companion-module-ableton-osc",
+	"bugs": "https://github.com/bitfocus/companion-module-ableton-osc/issues",
 	"maintainers": [
 		{
 			"name": "Mathieu Lantin",
