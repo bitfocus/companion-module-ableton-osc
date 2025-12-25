@@ -3,13 +3,27 @@
   "version": "1.0.0",
   "main": "main.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "companion-module-build": "node ./node_modules/@companion-module/base/dist/entrypoint.js"
+    "format": "prettier -w .",
+    "package": "companion-module-build"
   },
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bitfocus/companion-module-your-module-name.git"
+  },
+  "engines": {
+    "node": "^22.20",
+    "yarn": "^4"
+  },
   "dependencies": {
-    "@companion-module/base": "^1.13.5",
+    "@companion-module/base": "~1.12.1",
     "jimp": "^1.6.0",
     "osc": "^2.4.4"
-  }
+  },
+  "devDependencies": {
+    "@companion-module/tools": "^2.4.2",
+    "prettier": "^3.6.2"
+  },
+  "prettier": "@companion-module/tools/.prettierrc.json",
+  "packageManager": "yarn@4.12.0"
 }

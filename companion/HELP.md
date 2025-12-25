@@ -3,7 +3,7 @@
 
 Welcome! This Companion module lets you control Ableton Live via OSC, with advanced visual feedback (clip names, colors, meters, etc.).
 
-![Main Example](https://raw.githubusercontent.com/matlantin/companion-module-ableton-osc/refs/heads/main/img/main_example.png)
+![Main Example](https://raw.githubusercontent.com/bitfocus/companion-module-ableton-osc/refs/heads/main/img/main_example.png)
 
 ## Quick Setup
 
@@ -24,9 +24,9 @@ Welcome! This Companion module lets you control Ableton Live via OSC, with advan
 - **Fade in/out**: Smooth audio fades for tracks or clips.
 - **Device control**: On/Off, set parameters, visual feedback.
 - **Dynamic variables**: Real-time display of values (level, mute, parameters).
-- **Audio Follow Video (Advanced Fade)**: Automate fades based on a variable (e.g., camera tally). When a camera goes ON AIR, the track fades in; when OFF AIR, it fades out. See the [Advanced Fading Guide](https://github.com/matlantin/companion-module-ableton-osc/wiki/Advanced-Fading) for details.
+- **Audio Follow Video (Advanced Fade)**: Automate fades based on a variable (e.g., camera tally). When a camera goes ON AIR, the track fades in; when OFF AIR, it fades out. See the [Advanced Fading Guide](https://github.com/bitfocus/companion-module-ableton-osc/wiki/Advanced-Fading) for details.
 
 ---
 
-For more details, check the [full documentation and Wiki](https://github.com/matlantin/companion-module-ableton-osc/wiki).
+For more details, check the [full documentation and Wiki](https://github.com/bitfocus/companion-module-ableton-osc/wiki).
 

@@ -23,7 +23,7 @@
 	"maintainers": [
 		{
 			"name": "Mathieu Lantin",
-			"email": "47821824+matlantin@users.noreply.github.com"
+			"email": "mathieu@matlantin.be"
 		}
 	],
 	"legacyIds": [],
@@ -34,3 +34,4 @@
 		"entrypoint": "../main.js"
 	}
 }
+
