@@ -2,82 +2,79 @@
 
 ## Presets Inventory
 
-The module automatically generates presets to help you get started quickly.
+The module automatically generates presets organized in a hierarchical folder structure by track name. After running "Scan Project", all presets are dynamically populated with track and clip names from your Ableton project.
 
-### Category: Utility
+> **Important**: Run "Scan Project" first to populate all presets with your project's tracks, clips, and devices!
 
-* **Scan Project**: **(Essential)** Scans the current Ableton project to update track/scene counts, names, and colors.
+### Category: 0. Start Here
 
-### Category: Clip - Fire
+* 🔍 **Scan Project**: **(Essential)** Scans the current Ableton project to update track/scene counts, names, colors, and devices. This populates all other preset categories.
 
-A grid of buttons that allows you to:
+### Category: Clips / Fire / [Track Name]
 
-* **Fire a clip** (Press).
-* **Display the clip name** as the button name.
-* **Display the clip color** as the button background.
-* **Blink** when the clip is playing.
+Organized by track, a grid of buttons to fire clips:
 
-### Category: Clip - Stop
+* **Fire [Clip Name]**: Fires the clip.
+  * Displays the clip name as variable.
+  * **Background color** matches the Ableton clip color.
+  * **Blinks** when the clip is playing.
+* Only clips that exist are shown (empty slots are skipped after scan).
 
-A grid of buttons to stop specific clips:
+### Category: Clips / Stop / [Track Name]
 
-* **Stop Clip**: Stops the clip on a specific track/scene.
+Organized by track, buttons to stop specific clips:
+
+* ⏹️ **Stop [Clip Name]**: Stops the clip.
   * **Red Background**.
-  * Displays "STOP" and the clip name.
+  * Displays clip name.
 
-### Category: Clip - Fade
+### Category: Clips / Fade / [Track Name]
 
-Presets to fade clips in or out:
+Organized by track, buttons for clip fading:
 
-* **Fade In Clip**: Fires a clip with a smooth volume fade-in (default 1.5s).
-* **Fade Out Clip**: Fades out a clip's volume and stops it (default 3.5s).
+* 📈 **Fade In [Clip Name]**: Fires the clip with a smooth volume fade-in (default 1.5s).
+* 📉 **Fade Out [Clip Name]**: Fades out the clip's volume and stops it (default 3.5s).
+  * Background color matches Ableton clip color.
 
-### Category: Track - Meter & Mute
+### Category: Tracks / [Track Name]
 
-Buttons to control tracks:
+All controls for a specific track in one place:
 
-* **Mute Track**: Toggles track mute.
+* ⏹️ **Stop All Clips**: Stops all playing clips on the track.
+* **Mute**: Toggles track mute.
   * Displays track name.
   * **Red Background** when muted.
   * **Visual Meter** (Right bar) showing real-time audio level.
-
-### Category: Track - Stop
-
-* **Stop Track**: Stops playing all clips on a specific track. Displays the track name.
-
-### Category: Track - Meter
-
-Buttons displaying real-time track audio levels:
-
-* **Meter Track**: Displays the track name and a dynamic bargraph.
-
-### Category: Track - Fade
-
-Presets to fade tracks in or out:
-
-* **Fade In Track**: Fades in the track volume (default 1.5s).
-* **Fade Out Track**: Fades out the track volume (default 3.5s).
+* 📈 **Fade In**: Fades in the track volume (default 1.5s).
+* 📉 **Fade Out**: Fades out the track volume (default 3.5s).
   * **Behavior**: Fades volume to 0, stops all playing clips on the track, then restores the volume to its initial level.
 
-### Category: Device - Toggle
+### Category: Devices / Toggle / [Track Name]
 
-* **Device Toggle**: Toggles a device (On/Off) on a specific track.
-  * Displays device name.
+Organized by track, device on/off toggles:
+
+* **[Device Name]**: Toggles a device (On/Off).
+  * Displays device name and track name.
   * **Green Background** when the device is On.
 
-### Category: Device - Select and Control
+### Category: Device Params / [Track Name] / [Device Name]
 
-A set of generic buttons to control the *currently selected* parameter (see Actions).
+Hierarchical organization of device parameters (populated after scan):
 
-* **Step Up (+)** / **Step Down (-)**: Increases or decreases the value of the selected parameter.
-* **Set ON** / **Set OFF**: Sets the selected parameter to max (100%) or min (0%).
-* **Toggle**: Toggles the selected parameter between 0 and 1.
-* **Selected Parameter Value**: Displays the current value of the selected parameter.
-* **Select Parameter**: A generic button to select a parameter (requires configuration).
+* **[Parameter Name]**: Selects this parameter for control via the "Controls" category buttons.
+  * **Orange Background** when selected.
 
-### Category: Device Parameters (Dynamic)
+### Category: Controls
 
-* **Select Parameter [Name]**: Automatically generated buttons for every parameter found during "Scan Project". Pressing one selects that parameter for control via the "Device - Select and Control" buttons.
+Generic buttons to control the *currently selected* parameter:
+
+* ➖ **Step Down (-)**: Decreases the value of the selected parameter.
+* ➕ **Step Up (+)**: Increases the value of the selected parameter.
+* **ON**: Sets the selected parameter to max (100%).
+* **OFF**: Sets the selected parameter to min (0%).
+* 🔄 **Toggle**: Toggles the selected parameter between 0 and 100.
+* **Selected Parameter Value**: Displays the current value.
+* **Selected Parameter Name**: Displays the name of the selected parameter.
 
 ## Features & Feedbacks
 

@@ -32,6 +32,11 @@ class AbletonOSCInstance extends InstanceBase {
 		this.knownParameters = [] // Array of { id: 't_d_p', label: '...' }
 		this.sceneNames = {} // Store scene names
 		this.clipNames = {} // Store clip names
+		this.clipSlotHasClip = {} // Track which slots have clips
+		this.pendingClipInfoRequests = new Set() // Pending has_clip requests
+		this.updateDebounceTimer = null // Debounce timer for UI updates
+		this.lastMeterUpdate = 0 // Throttle meter feedback updates
+		this.meterUpdateInterval = 50 // Minimum ms between meter feedback updates
 	}
 
 	async init(config) {
@@ -68,6 +73,11 @@ class AbletonOSCInstance extends InstanceBase {
 		if (this.fetchTimeout) {
 			clearTimeout(this.fetchTimeout)
 			this.fetchTimeout = null
+		}
+
+		if (this.updateDebounceTimer) {
+			clearTimeout(this.updateDebounceTimer)
+			this.updateDebounceTimer = null
 		}
 
 		if (this.oscPort) {
@@ -310,8 +320,8 @@ class AbletonOSCInstance extends InstanceBase {
 			}
 		}
 
-		// Interval for updates (e.g. every 10ms for smoother fades)
-		const intervalTime = 10
+		// Interval for updates (30ms is smooth enough while reducing OSC traffic)
+		const intervalTime = 30
 		
 		if (fade.interval) clearInterval(fade.interval)
 
@@ -449,8 +459,8 @@ class AbletonOSCInstance extends InstanceBase {
 			// Store for dropdowns
 			this.clipNames[`${track}_${clip}`] = name
 			
-			// Update actions to refresh clip choices
-			this.initActions()
+			// Update actions to refresh clip choices (debounced)
+			this.scheduleUiUpdate()
 
 		} else if (address === '/live/clip/get/color') {
 			// args: [track, clip, color]
@@ -488,6 +498,28 @@ class AbletonOSCInstance extends InstanceBase {
 			this.checkVariableDefinition(varId, `Track Name ${track}`)
 			this.setVariableValues({ [varId]: name })
 
+		} else if (address === '/live/clip_slot/get/has_clip') {
+			// args: [track, clip, has_clip]
+			const track = args[0].value
+			const clip = args[1].value
+			const hasClip = args[2].value === 1 || args[2].value === true
+			
+			const key = `${track + 1}_${clip + 1}`
+			this.clipSlotHasClip[key] = hasClip
+			this.pendingClipInfoRequests.delete(key)
+			
+			// Only request clip info if there's actually a clip
+			if (hasClip) {
+				this.sendOsc('/live/clip/get/name', [
+					{ type: 'i', value: track },
+					{ type: 'i', value: clip }
+				])
+				this.sendOsc('/live/clip/get/color', [
+					{ type: 'i', value: track },
+					{ type: 'i', value: clip }
+				])
+			}
+
 		} else if (address === '/live/scene/get/name') {
 			// args: [scene, name]
 			const scene = args[0].value + 1
@@ -495,8 +527,8 @@ class AbletonOSCInstance extends InstanceBase {
 			
 			this.sceneNames[scene] = name
 			
-			// Update actions to refresh scene choices
-			this.initActions()
+			// Update actions to refresh scene choices (debounced)
+			this.scheduleUiUpdate()
 
 		} else if (address === '/live/track/get/mute') {
 			// args: [track, mute]
@@ -576,11 +608,14 @@ class AbletonOSCInstance extends InstanceBase {
 			this.trackLevels[track] = maxLevel
 			
 			const varId = `track_meter_${track}`
-			// We assume variable is defined during init or first pass to save CPU
 			this.setVariableValues({ [varId]: maxLevel.toFixed(2) })
 			
-			this.checkFeedbacks('track_meter')
-			this.checkFeedbacks('track_meter_visual')
+			// Throttle feedback updates to reduce CPU load
+			const now = Date.now()
+			if (now - this.lastMeterUpdate >= this.meterUpdateInterval) {
+				this.lastMeterUpdate = now
+				this.checkFeedbacks('track_meter', 'track_meter_visual')
+			}
 
 		} else if (address === '/live/song/get/num_tracks') {
 			this.numTracks = args[0].value
@@ -643,10 +678,8 @@ class AbletonOSCInstance extends InstanceBase {
 				})
 			}
 			
-			// Update actions to refresh the dropdown
-			this.initActions()
-			this.initFeedbacks()
-			this.initPresets()
+			// Update actions to refresh the dropdown (debounced)
+			this.scheduleUiUpdate()
 
 		}
 		} catch (e) {
@@ -719,17 +752,14 @@ class AbletonOSCInstance extends InstanceBase {
 				this.checkVariableDefinition(varId, `Track Meter ${t + 1}`)
 
 				for (let s = 0; s < sCount; s++) {
-					// Request Name
-					this.sendOsc('/live/clip/get/name', [
+					// First check if slot has a clip (response will trigger name/color fetch)
+					const key = `${t + 1}_${s + 1}`
+					this.pendingClipInfoRequests.add(key)
+					this.sendOsc('/live/clip_slot/get/has_clip', [
 						{ type: 'i', value: t },
 						{ type: 'i', value: s }
 					])
-					// Request Color
-					this.sendOsc('/live/clip/get/color', [
-						{ type: 'i', value: t },
-						{ type: 'i', value: s }
-					])
-					msgCount += 2
+					msgCount++
 
 					if (msgCount >= 100) {
 						await new Promise(resolve => setTimeout(resolve, 10))
@@ -868,6 +898,19 @@ class AbletonOSCInstance extends InstanceBase {
 				args: args
 			})
 		}
+	}
+
+	// Debounced UI update to avoid flooding initActions/initFeedbacks calls
+	scheduleUiUpdate() {
+		if (this.updateDebounceTimer) {
+			clearTimeout(this.updateDebounceTimer)
+		}
+		this.updateDebounceTimer = setTimeout(() => {
+			this.initActions()
+			this.initFeedbacks()
+			this.initPresets()
+			this.updateDebounceTimer = null
+		}, 250) // Wait 250ms after last update before refreshing UI
 	}
 }
 

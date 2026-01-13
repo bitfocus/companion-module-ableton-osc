@@ -14,7 +14,20 @@ Welcome! This Companion module lets you control Ableton Live via OSC, with advan
    - Target IP: Computer running Ableton (usually `127.0.0.1` if same machine)
    - Send Port: 11000
    - Receive Port: 11001
-5. **Press the "Scan Project" button** (in Utility presets) to fetch your project structure (track names, scenes, clips, devices).
+5. **Press the "🔍 Scan Project" button** (in `0. Start Here` category) to fetch your project structure (track names, scenes, clips, devices).
+
+## Preset Categories
+
+Presets are organized hierarchically by track name for easy navigation:
+
+- **0. Start Here**: Scan Project button (run this first!)
+- **Clips / Fire / [Track]**: Fire clips with color and blink feedback
+- **Clips / Stop / [Track]**: Stop specific clips
+- **Clips / Fade / [Track]**: Fade in/out clips
+- **Tracks / [Track]**: Mute, Stop All, Fade controls per track
+- **Devices / Toggle / [Track]**: Device on/off toggles
+- **Device Params / [Track] / [Device]**: Parameter selection
+- **Controls**: Step +/-, ON/OFF, Toggle for selected parameter
 
 ## Main Features
 
@@ -29,4 +42,3 @@ Welcome! This Companion module lets you control Ableton Live via OSC, with advan
 ---
 
 For more details, check the [full documentation and Wiki](https://github.com/bitfocus/companion-module-ableton-osc/wiki).
-
