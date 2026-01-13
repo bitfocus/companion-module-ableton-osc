@@ -577,5 +577,46 @@ module.exports = async function (self) {
 		feedbacks: []
 	}
 
+	presets['utility_raw_osc'] = {
+		type: 'button',
+		category: '0. Start Here',
+		name: 'Raw OSC Command',
+		style: {
+			text: '📡 Raw\\nOSC',
+			size: '14',
+			color: combineRgb(255, 255, 255),
+			bgcolor: combineRgb(64, 64, 64)
+		},
+		steps: [
+			{
+				down: [
+					{
+						actionId: 'raw_osc',
+						options: {
+							address: '/live/song/get/tempo',
+							args: ''
+						}
+					}
+				],
+				up: []
+			}
+		],
+		feedbacks: []
+	}
+
+	presets['utility_raw_response'] = {
+		type: 'button',
+		category: '0. Start Here',
+		name: 'Last Raw Response',
+		style: {
+			text: '$(ableton:last_raw_response)',
+			size: 'auto',
+			color: combineRgb(255, 255, 255),
+			bgcolor: combineRgb(32, 32, 64)
+		},
+		steps: [{ down: [], up: [] }],
+		feedbacks: []
+	}
+
 	self.setPresetDefinitions(presets)
 }

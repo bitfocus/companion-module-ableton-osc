@@ -903,6 +903,67 @@ module.exports = function (self) {
 				self.sendOsc('/live/song/get/num_tracks', [])
 				self.sendOsc('/live/song/get/num_scenes', [])
 			}
+		},
+		raw_osc: {
+			name: 'OSC - Send Raw Command',
+			description: 'Send a custom OSC message to AbletonOSC. Use this for commands not yet implemented in the module.',
+			options: [
+				{
+					type: 'textinput',
+					label: 'OSC Address',
+					id: 'address',
+					default: '/live/song/get/tempo',
+					required: true,
+					tooltip: 'The OSC address path (e.g., /live/song/set/tempo)'
+				},
+				{
+					type: 'textinput',
+					label: 'Arguments (comma-separated)',
+					id: 'args',
+					default: '',
+					required: false,
+					tooltip: 'Comma-separated arguments. Prefix with type: i:123 (int), f:1.5 (float), s:text (string). Without prefix, auto-detected.'
+				}
+			],
+			callback: async (event) => {
+				const address = event.options.address.trim()
+				const argsStr = event.options.args?.trim() || ''
+				
+				let oscArgs = []
+				
+				if (argsStr.length > 0) {
+					const parts = argsStr.split(',').map(p => p.trim())
+					
+					for (const part of parts) {
+						if (part.startsWith('i:')) {
+							// Explicit integer
+							oscArgs.push({ type: 'i', value: parseInt(part.substring(2)) })
+						} else if (part.startsWith('f:')) {
+							// Explicit float
+							oscArgs.push({ type: 'f', value: parseFloat(part.substring(2)) })
+						} else if (part.startsWith('s:')) {
+							// Explicit string
+							oscArgs.push({ type: 's', value: part.substring(2) })
+						} else {
+							// Auto-detect type
+							const num = Number(part)
+							if (!isNaN(num)) {
+								if (part.includes('.')) {
+									oscArgs.push({ type: 'f', value: num })
+								} else {
+									oscArgs.push({ type: 'i', value: num })
+								}
+							} else {
+								// Treat as string
+								oscArgs.push({ type: 's', value: part })
+							}
+						}
+					}
+				}
+				
+				self.log('info', `Raw OSC: ${address} ${JSON.stringify(oscArgs)}`)
+				self.sendOsc(address, oscArgs)
+			}
 		}
 	})
 }

@@ -642,6 +642,15 @@ class AbletonOSCInstance extends InstanceBase {
 			// Update presets to include these devices
 			this.initPresets()
 
+			// Start listening to device parameter 0 (Device On/Off) for each device found
+			for (let i = 0; i < names.length; i++) {
+				this.sendOsc('/live/device/start_listen/parameter/value', [
+					{ type: 'i', value: track - 1 },
+					{ type: 'i', value: i },
+					{ type: 'i', value: 0 } // Parameter 0 is usually Device On/Off
+				])
+			}
+
 			// Fetch parameters for these devices
 			for (let i = 0; i < names.length; i++) {
 				this.sendOsc('/live/device/get/parameters/name', [
@@ -681,10 +690,56 @@ class AbletonOSCInstance extends InstanceBase {
 			// Update actions to refresh the dropdown (debounced)
 			this.scheduleUiUpdate()
 
+		} else if (address === '/live/error') {
+			// AbletonOSC error response - log but don't create variables
+			const errorMsg = args.length > 0 ? args[0].value : 'Unknown error'
+			this.log('warn', `AbletonOSC Error: ${errorMsg}`)
+
+		} else {
+			// Generic handler for unhandled OSC responses (Raw OSC feedback)
+			// Store the response in a variable based on the address
+			this.handleRawOscResponse(address, args)
 		}
 		} catch (e) {
 			this.log('error', `Error processing OSC message: ${e.message}`)
 		}
+	}
+
+	handleRawOscResponse(address, args) {
+		// Convert address to variable-safe name: /live/song/get/tempo -> live_song_get_tempo
+		const varName = 'raw_' + address.replace(/^\//,'').replace(/\//g, '_')
+		
+		// Format the value(s) for display
+		let displayValue = ''
+		if (args.length === 0) {
+			displayValue = '(no value)'
+		} else if (args.length === 1) {
+			displayValue = String(args[0].value)
+		} else {
+			// Multiple values: join with comma
+			displayValue = args.map(a => String(a.value)).join(', ')
+		}
+		
+		// Store full response for advanced use
+		const fullValue = args.map(a => `${a.type}:${a.value}`).join(', ')
+		
+		// Ensure variable exists
+		this.checkVariableDefinition(varName, `Raw: ${address}`)
+		this.checkVariableDefinition(varName + '_full', `Raw Full: ${address}`)
+		
+		// Update variable values
+		this.setVariableValues({
+			[varName]: displayValue,
+			[varName + '_full']: fullValue
+		})
+		
+		// Also store the last raw response for quick access
+		this.setVariableValues({
+			'last_raw_response': displayValue,
+			'last_raw_address': address
+		})
+		
+		this.log('debug', `Raw OSC Response: ${address} = ${displayValue}`)
 	}
 
 	fetchClipInfo() {
@@ -736,16 +791,8 @@ class AbletonOSCInstance extends InstanceBase {
 				])
 				msgCount++
 
-				// Start listening to device parameter 0 (Device On/Off) for first 5 devices
-				const maxDevices = 5
-				for (let d = 0; d < maxDevices; d++) {
-					this.sendOsc('/live/device/start_listen/parameter/value', [
-						{ type: 'i', value: t },
-						{ type: 'i', value: d },
-						{ type: 'i', value: 0 } // Parameter 0 is usually Device On/Off
-					])
-					msgCount++
-				}
+				// Note: Device parameter listeners are set up when we receive the devices/name response
+				// This avoids "Index out of range" errors from requesting non-existent devices
 
 				// Ensure variable definition exists
 				const varId = `track_meter_${t + 1}`

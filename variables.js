@@ -5,7 +5,9 @@ module.exports = async function (self) {
 		{ variableId: 'selected_parameter_device', name: 'Selected Parameter Device' },
 		{ variableId: 'selected_parameter_num', name: 'Selected Parameter Number' },
 		{ variableId: 'selected_parameter_value', name: 'Selected Parameter Value' },
-		{ variableId: 'selected_parameter_name', name: 'Selected Parameter Name' }
+		{ variableId: 'selected_parameter_name', name: 'Selected Parameter Name' },
+		{ variableId: 'last_raw_response', name: 'Last Raw OSC Response' },
+		{ variableId: 'last_raw_address', name: 'Last Raw OSC Address' }
 	]
 
 	const numTracks = self.numTracks || 8

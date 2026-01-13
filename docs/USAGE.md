@@ -9,6 +9,7 @@ The module automatically generates presets organized in a hierarchical folder st
 ### Category: 0. Start Here
 
 * 🔍 **Scan Project**: **(Essential)** Scans the current Ableton project to update track/scene counts, names, colors, and devices. This populates all other preset categories.
+* 📡 **Raw OSC**: Template button for sending custom OSC commands not yet implemented in the module.
 
 ### Category: Clips / Fire / [Track Name]
 
@@ -96,6 +97,11 @@ Generic buttons to control the *currently selected* parameter:
   * **Set Parameter Value**: Sets a specific value for a parameter.
   * **Step Parameter**: Increments/Decrements a parameter value.
   * **Select Device Parameter**: Selects a parameter for the "Select and Control" presets.
+* **Raw OSC Command**: Send any custom OSC message to AbletonOSC. Useful for commands not yet implemented in the module.
+  * **Address**: The OSC path (e.g., `/live/song/set/tempo`)
+  * **Arguments**: Comma-separated values. Prefix with type: `i:123` (int), `f:1.5` (float), `s:text` (string). Without prefix, type is auto-detected.
+  * **Response Capture**: When sending a "get" command, the response is automatically stored in a variable named `$(ableton:raw_<address>)`. Example: `/live/song/get/tempo` → `$(ableton:raw_live_song_get_tempo)`.
+  * **Last Response**: The most recent raw response is also available in `$(ableton:last_raw_response)`.
 
 #### Note: "Create Variable for this parameter?"
 
