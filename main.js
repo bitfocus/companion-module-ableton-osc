@@ -351,10 +351,6 @@ class AbletonOSCInstance extends InstanceBase {
 				// Finished
 				clearInterval(fade.interval)
 				
-				// Ensure we hit target exactly
-				const finalValue = fade.subtype === 'toggle' ? fade.toVolume : 
-					(fade.direction === 'out' ? 0 : fade.toVolume)
-				
 				if (fade.type === 'clip') {
 					if (fade.direction === 'out') {
 						this.sendOsc('/live/clip/stop', [
@@ -371,19 +367,35 @@ class AbletonOSCInstance extends InstanceBase {
 						this.sendOsc('/live/clip/set/gain', [
 							{ type: 'i', value: fade.track },
 							{ type: 'i', value: fade.clip },
-							{ type: 'f', value: finalValue }
+							{ type: 'f', value: fade.toVolume }
 						])
 					}
 				} else if (fade.type === 'track') {
-					this.sendOsc('/live/track/set/volume', [
-						{ type: 'i', value: fade.track },
-						{ type: 'f', value: finalValue }
-					])
-					// For non-toggle track fade out, stop clips
-					if (fade.direction === 'out' && fade.subtype !== 'toggle' && fade.stopClips !== false) {
-						this.sendOsc('/live/track/stop_all_clips', [
-							{ type: 'i', value: fade.track }
+					if (fade.subtype === 'toggle') {
+						// Toggle fade: set to exact target level
+						this.sendOsc('/live/track/set/volume', [
+							{ type: 'i', value: fade.track },
+							{ type: 'f', value: fade.toVolume }
 						])
+					} else {
+						// Standard track fade
+						if (fade.direction === 'out') {
+							// Stop clips first
+							this.sendOsc('/live/track/stop_all_clips', [
+								{ type: 'i', value: fade.track }
+							])
+							// Then restore volume to original value
+							this.sendOsc('/live/track/set/volume', [
+								{ type: 'i', value: fade.track },
+								{ type: 'f', value: fade.fromVolume }
+							])
+						} else {
+							// Fade in: ensure we hit target exactly
+							this.sendOsc('/live/track/set/volume', [
+								{ type: 'i', value: fade.track },
+								{ type: 'f', value: fade.toVolume }
+							])
+						}
 					}
 				}
 				
