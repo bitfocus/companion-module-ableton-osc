@@ -1,10 +1,14 @@
 const { combineRgb } = require('@companion-module/base')
 
 module.exports = async function (self) {
+	const startTime = Date.now()
 	const presets = {}
 
 	const numTracks = self.numTracks || 8
 	const numScenes = self.numScenes || 8
+	
+	// Skip generating clip presets if no scan data yet (speeds up initial load)
+	const hasClipData = Object.keys(self.clipSlotHasClip || {}).length > 0
 
 	// Helper to get track name
 	const getTrackName = (t) => self.getVariableValue(`track_name_${t}`) || `Track ${t}`
@@ -21,14 +25,12 @@ module.exports = async function (self) {
 	for (let t = 1; t <= numTracks; t++) {
 		const trackName = getTrackName(t)
 		for (let s = 1; s <= numScenes; s++) {
-			// Only create preset if clip exists (after scan) or always if not scanned yet
-			const clipExists = hasClip(t, s)
-			const clipName = getClipName(t, s)
-			
-			// Skip empty slots if we have scan data
-			if (Object.keys(self.clipSlotHasClip || {}).length > 0 && !clipExists) {
+			// Skip if no scan data yet, or if clip doesn't exist
+			if (!hasClipData || !hasClip(t, s)) {
 				continue
 			}
+			
+			const clipName = getClipName(t, s)
 
 			presets[`clip_fire_${t}_${s}`] = {
 				type: 'button',
@@ -75,12 +77,12 @@ module.exports = async function (self) {
 	for (let t = 1; t <= numTracks; t++) {
 		const trackName = getTrackName(t)
 		for (let s = 1; s <= numScenes; s++) {
-			const clipExists = hasClip(t, s)
-			const clipName = getClipName(t, s)
-			
-			if (Object.keys(self.clipSlotHasClip || {}).length > 0 && !clipExists) {
+			// Skip if no scan data yet, or if clip doesn't exist
+			if (!hasClipData || !hasClip(t, s)) {
 				continue
 			}
+			
+			const clipName = getClipName(t, s)
 
 			presets[`clip_stop_${t}_${s}`] = {
 				type: 'button',
@@ -114,12 +116,12 @@ module.exports = async function (self) {
 	for (let t = 1; t <= numTracks; t++) {
 		const trackName = getTrackName(t)
 		for (let s = 1; s <= numScenes; s++) {
-			const clipExists = hasClip(t, s)
-			const clipName = getClipName(t, s)
-			
-			if (Object.keys(self.clipSlotHasClip || {}).length > 0 && !clipExists) {
+			// Skip if no scan data yet, or if clip doesn't exist
+			if (!hasClipData || !hasClip(t, s)) {
 				continue
 			}
+			
+			const clipName = getClipName(t, s)
 
 			// Fade In Clip
 			presets[`clip_fade_in_${t}_${s}`] = {
@@ -186,7 +188,16 @@ module.exports = async function (self) {
 	// ============================================================
 	// TRACKS / CONTROLS
 	// ============================================================
+	// Only generate track presets if we have track name data (after scan)
+	const trackName1 = self.getVariableValue('track_name_1')
+	const hasTrackData = trackName1 !== undefined && trackName1 !== null && trackName1 !== ''
+	
 	for (let t = 1; t <= numTracks; t++) {
+		// Skip if no scan data yet
+		if (!hasTrackData) {
+			break // Exit loop entirely, not just continue
+		}
+		
 		const trackName = getTrackName(t)
 
 		// Stop All Clips
@@ -618,5 +629,16 @@ module.exports = async function (self) {
 		feedbacks: []
 	}
 
-	self.setPresetDefinitions(presets)
+	// Generate a simple hash to detect changes
+	const presetCount = Object.keys(presets).length
+	const deviceCount = Object.keys(self.deviceNames || {}).length
+	const hash = `${self.numTracks}_${self.numScenes}_${presetCount}_${deviceCount}_${hasClipData}`
+	
+	// Only update if presets changed
+	if (hash !== self.lastPresetsHash) {
+		self.lastPresetsHash = hash
+		self.setPresetDefinitions(presets)
+		const elapsed = Date.now() - startTime
+		self.log('debug', `Presets updated: ${presetCount} presets in ${elapsed}ms`)
+	}
 }

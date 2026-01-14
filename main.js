@@ -37,6 +37,10 @@ class AbletonOSCInstance extends InstanceBase {
 		this.updateDebounceTimer = null // Debounce timer for UI updates
 		this.lastMeterUpdate = 0 // Throttle meter feedback updates
 		this.meterUpdateInterval = 50 // Minimum ms between meter feedback updates
+		this.variableDefinitionsDirty = false // Track if variable definitions need updating
+		this.variableDefinitionsTimer = null // Timer for batched variable definition updates
+		this.lastPresetsHash = '' // Hash to detect if presets changed
+		this.isScanning = false // Flag to batch updates during scan
 	}
 
 	async init(config) {
@@ -44,12 +48,26 @@ class AbletonOSCInstance extends InstanceBase {
 
 		this.updateStatus(InstanceStatus.Connecting)
 
+		const startTime = Date.now()
+		this.log('debug', 'Starting module initialization...')
+
 		this.initOsc()
+		this.log('debug', `initOsc: ${Date.now() - startTime}ms`)
+		
 		this.initActions()
+		this.log('debug', `initActions: ${Date.now() - startTime}ms`)
+		
 		this.initFeedbacks()
+		this.log('debug', `initFeedbacks: ${Date.now() - startTime}ms`)
+		
 		this.initVariables()
+		this.log('debug', `initVariables: ${Date.now() - startTime}ms`)
+		
 		this.initPresets()
+		this.log('debug', `initPresets: ${Date.now() - startTime}ms`)
+		
 		this.startBlink()
+		this.log('info', `Module initialization complete in ${Date.now() - startTime}ms`)
 	}
 
 
@@ -78,6 +96,11 @@ class AbletonOSCInstance extends InstanceBase {
 		if (this.updateDebounceTimer) {
 			clearTimeout(this.updateDebounceTimer)
 			this.updateDebounceTimer = null
+		}
+
+		if (this.variableDefinitionsTimer) {
+			clearTimeout(this.variableDefinitionsTimer)
+			this.variableDefinitionsTimer = null
 		}
 
 		if (this.oscPort) {
@@ -767,15 +790,13 @@ class AbletonOSCInstance extends InstanceBase {
 
 		} else if (address === '/live/song/get/num_tracks') {
 			this.numTracks = args[0].value
-			this.initVariables()
-			this.initPresets()
-			this.log('info', `Updated presets for ${this.numTracks} tracks`)
+			this.isScanning = true
+			this.log('info', `Scanning ${this.numTracks} tracks...`)
 			this.fetchClipInfo()
 		} else if (address === '/live/song/get/num_scenes') {
 			this.numScenes = args[0].value
-			this.initVariables()
-			this.initPresets()
-			this.log('info', `Updated presets for ${this.numScenes} scenes`)
+			this.isScanning = true
+			this.log('info', `Scanning ${this.numScenes} scenes...`)
 			this.fetchClipInfo()
 
 		} else if (address === '/live/track/get/devices/name') {
@@ -787,8 +808,8 @@ class AbletonOSCInstance extends InstanceBase {
 			}
 			this.deviceNames[track] = names
 			
-			// Update presets to include these devices
-			this.initPresets()
+			// Schedule UI update (batched) instead of immediate initPresets
+			this.scheduleUiUpdate()
 
 			// Start listening to device parameter 0 (Device On/Off) for each device found
 			for (let i = 0; i < names.length; i++) {
@@ -977,7 +998,18 @@ class AbletonOSCInstance extends InstanceBase {
 		if (!this.variableIds.has(id)) {
 			this.variableIds.add(id)
 			this.variableDefinitions.push({ variableId: id, name: name })
-			this.setVariableDefinitions(this.variableDefinitions)
+			this.variableDefinitionsDirty = true
+			
+			// Batch variable definition updates with a timer
+			if (!this.variableDefinitionsTimer) {
+				this.variableDefinitionsTimer = setTimeout(() => {
+					if (this.variableDefinitionsDirty) {
+						this.setVariableDefinitions(this.variableDefinitions)
+						this.variableDefinitionsDirty = false
+					}
+					this.variableDefinitionsTimer = null
+				}, 100) // Batch updates every 100ms
+			}
 		}
 	}
 
@@ -1100,12 +1132,27 @@ class AbletonOSCInstance extends InstanceBase {
 		if (this.updateDebounceTimer) {
 			clearTimeout(this.updateDebounceTimer)
 		}
+		
+		// Use longer delay during scanning to batch all updates
+		const delay = this.isScanning ? 1000 : 250
+		
 		this.updateDebounceTimer = setTimeout(() => {
+			const startTime = Date.now()
+			
 			this.initActions()
 			this.initFeedbacks()
 			this.initPresets()
+			
+			const elapsed = Date.now() - startTime
+			this.log('debug', `UI update completed in ${elapsed}ms`)
+			
+			if (this.isScanning) {
+				this.isScanning = false
+				this.log('info', `Scan complete. ${this.numTracks} tracks, ${this.numScenes} scenes.`)
+			}
+			
 			this.updateDebounceTimer = null
-		}, 250) // Wait 250ms after last update before refreshing UI
+		}, delay)
 	}
 }
 
