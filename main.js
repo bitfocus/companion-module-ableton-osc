@@ -18,7 +18,6 @@ class AbletonOSCInstance extends InstanceBase {
 		this.deviceParameters = {}
 		this.deviceNames = {}
 		this.clipPlaying = {}
-		this.trackStoredVolumes = {}
 		this.trackDelays = {}
 		this.variableDefinitions = []
 		this.numTracks = 8
@@ -201,21 +200,21 @@ class AbletonOSCInstance extends InstanceBase {
 		}
 	}
 
-	setupTrackToggleFade(track, direction, duration) {
+	setupTrackToggleFade(track, direction, duration, onLevel, offLevel) {
 		const id = `track_${track}`
 		
 		if (!this.activeFades) this.activeFades = {}
 
 		// Check for existing fade to interrupt
 		const existingFade = this.activeFades[id]
-		let targetVolume = undefined
+		let currentValue = undefined
 
 		if (existingFade) {
 			if (existingFade.interval) {
 				clearInterval(existingFade.interval)
 			}
-			// If we interrupt, we try to preserve the peak volume
-			targetVolume = existingFade.startValue
+			// If we interrupt, we need to know the current value to avoid jumps
+			currentValue = existingFade.currentValue
 		}
 		
 		this.activeFades[id] = {
@@ -227,7 +226,9 @@ class AbletonOSCInstance extends InstanceBase {
 			startTime: Date.now(),
 			state: 'init',
 			stopClips: false,
-			targetVolume: targetVolume
+			onLevel: onLevel,
+			offLevel: offLevel,
+			interruptedValue: currentValue
 		}
 
 		this.sendOsc('/live/track/get/volume', [
@@ -240,87 +241,49 @@ class AbletonOSCInstance extends InstanceBase {
 		if (!fade) return
 
 		fade.state = 'fading'
+		fade.currentValue = startValue  // Track current value for interruptions
 		
-		// Determine Peak/Target Volume logic
-		let peakVolume = startValue
+		// Determine start and target volumes
+		let fromVolume, toVolume
 		
-		if (fade.targetVolume !== undefined) {
-			// We are interrupting, so we know the target
-			peakVolume = fade.targetVolume
-		} else {
-			// Fresh start
-			if (fade.subtype === 'toggle') {
-				if (fade.direction === 'out') {
-					// We are fading out from current level. Current level is the peak.
-					peakVolume = startValue
-					// Store it for future Fade Ins
-					this.trackStoredVolumes[fade.track] = startValue
-				} else {
-					// Fade In
-					// We want to go to the stored volume, or default to 0.85 (approx 0dB)
-					if (this.trackStoredVolumes[fade.track] !== undefined) {
-						peakVolume = this.trackStoredVolumes[fade.track]
-					} else {
-						peakVolume = 0.85
-					}
-				}
-			} else {
-				// Standard Fade
-				// For Fade Out: startValue is the peak (current volume)
-				// For Fade In: startValue is the peak (target volume set by fader)
-				peakVolume = startValue
-			}
-		}
-		
-		// For the math to work, we treat 'startValue' in the fade object as the Peak Volume
-		fade.startValue = peakVolume
-		fade.startTime = Date.now()
-
-		// Calculate initial progress if we are interrupting (to avoid jumps)
-		// If we are at 'startValue' (OSC volume) and we want to go to 'peakVolume' (fade.startValue)
-		// We need to find the 'elapsed' time that corresponds to this position on the curve.
-		
-		let initialProgress = 0
-		
-		// We calculate progress if:
-		// 1. We are interrupting (targetVolume defined)
-		// 2. OR it's a toggle (which might be resuming/calculating from current state)
-		// 3. OR it's a standard fade where we are not at the target yet (e.g. Fade Out from 0.5 when peak is 0.85)
-		
-		// Special case: Fresh Manual Fade In.
-		// direction='in', targetVolume=undefined, subtype!='toggle'.
-		// In this case, OSC returns the target volume (e.g. 0.85). We want to start at 0.
-		// If we calculate progress, val=peak -> progress=1. It thinks it's finished!
-		// So we skip progress calculation for this specific case.
-		
-		const isFreshManualFadeIn = (fade.direction === 'in' && fade.targetVolume === undefined && fade.subtype !== 'toggle')
-		
-		if (!isFreshManualFadeIn && fade.startValue > 0.001) {
+		if (fade.subtype === 'toggle') {
+			// Toggle fade uses explicit onLevel and offLevel
 			if (fade.direction === 'out') {
-				// Curve: val = peak * (remaining * remaining)
-				// val / peak = remaining^2
-				// remaining = sqrt(val / peak)
-				// progress = 1 - remaining
-				const ratio = Math.max(0, Math.min(1, startValue / fade.startValue))
-				const remaining = Math.sqrt(ratio)
-				initialProgress = 1.0 - remaining
+				// Fade Out: from onLevel to offLevel
+				fromVolume = fade.onLevel
+				toVolume = fade.offLevel
 			} else {
-				// Curve: val = peak * (1 - p*p) where p = 1 - progress
-				// val / peak = 1 - p*p
-				// p*p = 1 - (val / peak)
-				// p = sqrt(1 - ratio)
-				// progress = 1 - p
-				const ratio = Math.max(0, Math.min(1, startValue / fade.startValue))
-				const p = Math.sqrt(1.0 - ratio)
-				initialProgress = 1.0 - p
+				// Fade In: from offLevel to onLevel
+				fromVolume = fade.offLevel
+				toVolume = fade.onLevel
 			}
 			
-			// Adjust startTime to fake the elapsed time
-			fade.startTime -= (initialProgress * fade.duration)
+			// If we were interrupted, start from current position
+			if (fade.interruptedValue !== undefined) {
+				// Calculate progress based on where we are in the range
+				const range = Math.abs(fromVolume - toVolume)
+				if (range > 0.001) {
+					const currentPos = Math.abs(startValue - fromVolume) / range
+					const initialProgress = Math.min(1, Math.max(0, currentPos))
+					fade.startTime -= (initialProgress * fade.duration)
+				}
+			}
+		} else {
+			// Standard Fade (clip gain, etc.)
+			if (fade.direction === 'out') {
+				fromVolume = startValue
+				toVolume = 0
+			} else {
+				fromVolume = 0
+				toVolume = startValue
+			}
 		}
-
-		// If fading in, set value to 0 and fire/start
-		if (fade.direction === 'in') {
+		
+		fade.fromVolume = fromVolume
+		fade.toVolume = toVolume
+		
+		// For standard fade in, set to 0 and fire/start
+		if (fade.direction === 'in' && fade.subtype !== 'toggle') {
 			if (fade.type === 'clip') {
 				this.sendOsc('/live/clip/set/gain', [
 					{ type: 'i', value: fade.track },
@@ -332,14 +295,10 @@ class AbletonOSCInstance extends InstanceBase {
 					{ type: 'i', value: fade.clip }
 				])
 			} else if (fade.type === 'track') {
-				// Only force to 0 if NOT a toggle (standard behavior) or if we are starting from scratch
-				// AND if we are NOT interrupting.
-				if (fade.subtype !== 'toggle' && fade.targetVolume === undefined) {
-					this.sendOsc('/live/track/set/volume', [
-						{ type: 'i', value: fade.track },
-						{ type: 'f', value: 0.0 }
-					])
-				}
+				this.sendOsc('/live/track/set/volume', [
+					{ type: 'i', value: fade.track },
+					{ type: 'f', value: 0.0 }
+				])
 			}
 		}
 
@@ -353,72 +312,77 @@ class AbletonOSCInstance extends InstanceBase {
 			const elapsed = now - fade.startTime
 			const progress = Math.min(elapsed / fade.duration, 1.0)
 			
+			// Calculate new value using easing
+			let newValue
+			
+			if (fade.subtype === 'toggle') {
+				// Linear interpolation with easing for toggle fades
+				let easedProgress
+				if (fade.direction === 'out') {
+					// Ease-In: starts slow, speeds up
+					easedProgress = progress * progress
+				} else {
+					// Ease-Out: starts fast, slows down
+					easedProgress = 1 - (1 - progress) * (1 - progress)
+				}
+				newValue = fade.fromVolume + (fade.toVolume - fade.fromVolume) * easedProgress
+			} else {
+				// Legacy behavior for clip fades
+				if (fade.direction === 'out') {
+					const remaining = 1.0 - progress
+					newValue = fade.fromVolume * (remaining * remaining)
+				} else {
+					const p = 1.0 - progress
+					newValue = fade.toVolume * (1.0 - p * p)
+				}
+			}
+			
+			// Update current value for potential interruption
+			fade.currentValue = newValue
+			
 			if (progress >= 1.0) {
 				// Finished
 				clearInterval(fade.interval)
 				
-				if (fade.direction === 'out') {
-					// Stop and restore
-					if (fade.type === 'clip') {
+				// Ensure we hit target exactly
+				const finalValue = fade.subtype === 'toggle' ? fade.toVolume : 
+					(fade.direction === 'out' ? 0 : fade.toVolume)
+				
+				if (fade.type === 'clip') {
+					if (fade.direction === 'out') {
 						this.sendOsc('/live/clip/stop', [
 							{ type: 'i', value: fade.track },
 							{ type: 'i', value: fade.clip }
 						])
-						// Restore gain
+						// Restore gain for clips
 						this.sendOsc('/live/clip/set/gain', [
 							{ type: 'i', value: fade.track },
 							{ type: 'i', value: fade.clip },
-							{ type: 'f', value: fade.startValue }
+							{ type: 'f', value: fade.fromVolume }
 						])
-					} else if (fade.type === 'track') {
-						if (fade.stopClips !== false) {
-							this.sendOsc('/live/track/stop_all_clips', [
-								{ type: 'i', value: fade.track }
-							])
-							// Restore volume
-							this.sendOsc('/live/track/set/volume', [
-								{ type: 'i', value: fade.track },
-								{ type: 'f', value: fade.startValue }
-							])
-						} else {
-							// For toggle fade out, we ensure we hit 0 exactly and stay there
-							this.sendOsc('/live/track/set/volume', [
-								{ type: 'i', value: fade.track },
-								{ type: 'f', value: 0.0 }
-							])
-						}
+					} else {
+						this.sendOsc('/live/clip/set/gain', [
+							{ type: 'i', value: fade.track },
+							{ type: 'i', value: fade.clip },
+							{ type: 'f', value: finalValue }
+						])
 					}
-				} else {
-					// Fade In Finished - Ensure we hit target exactly
-					if (fade.type === 'clip') {
-						this.sendOsc('/live/clip/set/gain', [
-							{ type: 'i', value: fade.track },
-							{ type: 'i', value: fade.clip },
-							{ type: 'f', value: fade.startValue }
-						])
-					} else if (fade.type === 'track') {
-						this.sendOsc('/live/track/set/volume', [
-							{ type: 'i', value: fade.track },
-							{ type: 'f', value: fade.startValue }
+				} else if (fade.type === 'track') {
+					this.sendOsc('/live/track/set/volume', [
+						{ type: 'i', value: fade.track },
+						{ type: 'f', value: finalValue }
+					])
+					// For non-toggle track fade out, stop clips
+					if (fade.direction === 'out' && fade.subtype !== 'toggle' && fade.stopClips !== false) {
+						this.sendOsc('/live/track/stop_all_clips', [
+							{ type: 'i', value: fade.track }
 						])
 					}
 				}
 				
 				delete this.activeFades[id]
 			} else {
-				// Calculate new value
-				let newValue
-				
-				if (fade.direction === 'out') {
-					// Quadratic fade out (Ease-In: starts slow, speeds up drop)
-					const remaining = 1.0 - progress
-					newValue = fade.startValue * (remaining * remaining)
-				} else {
-					// Quadratic fade in (Ease-Out: starts fast, slows down at end)
-					const p = 1.0 - progress
-					newValue = fade.startValue * (1.0 - p * p)
-				}
-				
+				// Send intermediate value
 				if (fade.type === 'clip') {
 					this.sendOsc('/live/clip/set/gain', [
 						{ type: 'i', value: fade.track },

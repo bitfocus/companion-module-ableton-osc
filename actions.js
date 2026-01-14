@@ -812,6 +812,24 @@ module.exports = function (self) {
 					max: 60000,
 					default: 3500,
 					required: true
+				},
+				{
+					type: 'number',
+					label: 'On Level (0-100%)',
+					id: 'on_level',
+					min: 0,
+					max: 100,
+					default: 85,
+					required: true
+				},
+				{
+					type: 'number',
+					label: 'Off Level (0-100%)',
+					id: 'off_level',
+					min: 0,
+					max: 100,
+					default: 0,
+					required: true
 				}
 			],
 			callback: async (event) => {
@@ -829,6 +847,8 @@ module.exports = function (self) {
 				const fallTime = event.options.fall_time
 				const onTime = event.options.on_time
 				const holdTime = event.options.hold_time
+				const onLevel = event.options.on_level / 100  // Convert to 0-1 range
+				const offLevel = event.options.off_level / 100  // Convert to 0-1 range
 
 				const id = `track_${track}`
 				
@@ -844,11 +864,11 @@ module.exports = function (self) {
 
 					if (holdTime > 0) {
 						self.trackDelays[id] = setTimeout(() => {
-							self.setupTrackToggleFade(track, 'in', riseTime)
+							self.setupTrackToggleFade(track, 'in', riseTime, onLevel, offLevel)
 							delete self.trackDelays[id]
 						}, holdTime)
 					} else {
-						self.setupTrackToggleFade(track, 'in', riseTime)
+						self.setupTrackToggleFade(track, 'in', riseTime, onLevel, offLevel)
 					}
 				} else {
 					// FADE OUT (Delayed by On Time)
@@ -856,11 +876,11 @@ module.exports = function (self) {
 					
 					if (onTime > 0) {
 						self.trackDelays[id] = setTimeout(() => {
-							self.setupTrackToggleFade(track, 'out', fallTime)
+							self.setupTrackToggleFade(track, 'out', fallTime, onLevel, offLevel)
 							delete self.trackDelays[id]
 						}, onTime)
 					} else {
-						self.setupTrackToggleFade(track, 'out', fallTime)
+						self.setupTrackToggleFade(track, 'out', fallTime, onLevel, offLevel)
 					}
 				}
 			}
