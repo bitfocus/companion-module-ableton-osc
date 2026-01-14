@@ -213,6 +213,60 @@ module.exports = async function (self) {
 					self.selectedParameter.parameter === parameter
 				)
 			}
+		},
+		clip_warping: {
+			type: 'boolean',
+			name: 'Clip Warping',
+			description: 'Change color when clip warping is enabled',
+			defaultStyle: {
+				bgcolor: combineRgb(255, 173, 86) // #FFAD56
+			},
+			options: [
+				{
+					type: 'dropdown',
+					label: 'Clip',
+					id: 'clipId',
+					choices: self.clipChoices,
+					default: self.clipChoices && self.clipChoices.length > 0 ? self.clipChoices[0].id : '1_1',
+					required: true,
+					minChoicesForSearch: 0
+				}
+			],
+			callback: (feedback) => {
+				const [trackStr, clipStr] = feedback.options.clipId.split('_')
+				const track = parseInt(trackStr)
+				const clip = parseInt(clipStr)
+				const varId = `clip_warping_${track}_${clip}`
+				const warping = self.getVariableValue(varId)
+				return warping === 'On'
+			}
+		},
+		clip_looping: {
+			type: 'boolean',
+			name: 'Clip Looping',
+			description: 'Change color when clip looping is enabled',
+			defaultStyle: {
+				bgcolor: combineRgb(255, 173, 86) // #FFAD56
+			},
+			options: [
+				{
+					type: 'dropdown',
+					label: 'Clip',
+					id: 'clipId',
+					choices: self.clipChoices,
+					default: self.clipChoices && self.clipChoices.length > 0 ? self.clipChoices[0].id : '1_1',
+					required: true,
+					minChoicesForSearch: 0
+				}
+			],
+			callback: (feedback) => {
+				const [trackStr, clipStr] = feedback.options.clipId.split('_')
+				const track = parseInt(trackStr)
+				const clip = parseInt(clipStr)
+				const varId = `clip_looping_${track}_${clip}`
+				const looping = self.getVariableValue(varId)
+				return looping === 'On'
+			}
 		}
 	})
 }

@@ -102,6 +102,14 @@ Generic buttons to control the *currently selected* parameter:
   * **Arguments**: Comma-separated values. Prefix with type: `i:123` (int), `f:1.5` (float), `s:text` (string). Without prefix, type is auto-detected.
   * **Response Capture**: When sending a "get" command, the response is automatically stored in a variable named `$(ableton:raw_<address>)`. Example: `/live/song/get/tempo` → `$(ableton:raw_live_song_get_tempo)`.
   * **Last Response**: The most recent raw response is also available in `$(ableton:last_raw_response)`.
+* **Clip Control Actions** (v1.2.0):
+  * **Clip - Set Loop Start to Now**: Sets the loop start point to the current playback position.
+  * **Clip - Set Loop End to Now**: Sets the loop end point to the current playback position.
+  * **Clip - Set Start Marker to Now**: Sets the start marker to the current playback position.
+  * **Clip - Set End Marker to Now**: Sets the end marker to the current playback position.
+  * **Clip - Warping Toggle**: Toggles warping on/off for the clip.
+  * **Clip - Looping Toggle**: Toggles looping on/off for the clip.
+  * **Clip - Get Info**: Fetches loop points, looping state, and warping state for a clip.
 
 #### Note: "Create Variable for this parameter?"
 
@@ -114,6 +122,8 @@ When using actions like **Set Parameter Value** or **Step Parameter**, you will 
 
 * **Clip Color**: Changes button background to match Ableton clip color.
 * **Clip Playing (Blink)**: Blinks the button when the clip is playing.
+* **Clip Warping** (v1.2.0): Orange background (#FFAD56) when warping is enabled on the clip.
+* **Clip Looping** (v1.2.0): Orange background (#FFAD56) when looping is enabled on the clip.
 * **Track Meter Level**: Changes color if audio level exceeds a threshold.
 * **Track Mute**: Changes background color (Red) if track is muted.
 * **Track Meter Visual**: Displays a real-time PNG bargraph on the button (Stereo Left, Stereo Right, or Full).
@@ -124,6 +134,12 @@ When using actions like **Set Parameter Value** or **Step Parameter**, you will 
 * `$(ableton:track_name_TRACK)`: Track name.
 * `$(ableton:track_meter_TRACK)`: Current track audio level (0.0 to 1.0).
 * `$(ableton:track_mute_TRACK)`: Track mute state (1 or 0).
+* `$(ableton:clip_loop_start_TRACK_CLIP)` (v1.2.0): Loop start position in beats.
+* `$(ableton:clip_loop_end_TRACK_CLIP)` (v1.2.0): Loop end position in beats.
+* `$(ableton:clip_start_marker_TRACK_CLIP)` (v1.2.0): Start marker position in beats.
+* `$(ableton:clip_end_marker_TRACK_CLIP)` (v1.2.0): End marker position in beats.
+* `$(ableton:clip_warping_TRACK_CLIP)` (v1.2.0): Warping state (On/Off).
+* `$(ableton:clip_looping_TRACK_CLIP)` (v1.2.0): Looping state (On/Off).
 
 ## Troubleshooting
 

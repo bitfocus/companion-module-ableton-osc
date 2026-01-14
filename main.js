@@ -528,7 +528,155 @@ class AbletonOSCInstance extends InstanceBase {
 			this.sceneNames[scene] = name
 			
 			// Update actions to refresh scene choices (debounced)
-			this.scheduleUiUpdate()
+
+		// ============================================================
+		// CLIP LOOP, MARKER, WARPING, LAUNCH MODE HANDLERS
+		// ============================================================
+		} else if (address === '/live/clip/get/playing_position') {
+			// args: [track, clip, position]
+			const track = args[0].value
+			const clip = args[1].value
+			const position = args[2].value
+			
+			// Check if we have a pending loop/marker set operation
+			if (this.pendingLoopSet && 
+				this.pendingLoopSet.track === track && 
+				this.pendingLoopSet.clip === clip) {
+				
+				const setType = this.pendingLoopSet.type
+				let oscAddress = ''
+				
+				switch (setType) {
+					case 'loop_start':
+						oscAddress = '/live/clip/set/loop_start'
+						break
+					case 'loop_end':
+						oscAddress = '/live/clip/set/loop_end'
+						break
+					case 'start_marker':
+						oscAddress = '/live/clip/set/start_marker'
+						break
+					case 'end_marker':
+						oscAddress = '/live/clip/set/end_marker'
+						break
+				}
+				
+				if (oscAddress) {
+					this.sendOsc(oscAddress, [
+						{ type: 'i', value: track },
+						{ type: 'i', value: clip },
+						{ type: 'f', value: position }
+					])
+					this.log('info', `Set ${setType} to ${position.toFixed(2)} beats for clip ${track + 1}_${clip + 1}`)
+				}
+				
+				this.pendingLoopSet = null
+			}
+			
+			// Update variable
+			const varId = `clip_position_${track + 1}_${clip + 1}`
+			this.checkVariableDefinition(varId, `Clip Position ${track + 1}-${clip + 1}`)
+			this.setVariableValues({ [varId]: position.toFixed(2) })
+
+		} else if (address === '/live/clip/get/loop_start') {
+			// args: [track, clip, loop_start]
+			const track = args[0].value + 1
+			const clip = args[1].value + 1
+			const loopStart = args[2].value
+			
+			const varId = `clip_loop_start_${track}_${clip}`
+			this.checkVariableDefinition(varId, `Clip Loop Start ${track}-${clip}`)
+			this.setVariableValues({ [varId]: loopStart.toFixed(2) })
+
+		} else if (address === '/live/clip/get/loop_end') {
+			// args: [track, clip, loop_end]
+			const track = args[0].value + 1
+			const clip = args[1].value + 1
+			const loopEnd = args[2].value
+			
+			const varId = `clip_loop_end_${track}_${clip}`
+			this.checkVariableDefinition(varId, `Clip Loop End ${track}-${clip}`)
+			this.setVariableValues({ [varId]: loopEnd.toFixed(2) })
+
+		} else if (address === '/live/clip/get/start_marker') {
+			// args: [track, clip, start_marker]
+			const track = args[0].value + 1
+			const clip = args[1].value + 1
+			const startMarker = args[2].value
+			
+			const varId = `clip_start_marker_${track}_${clip}`
+			this.checkVariableDefinition(varId, `Clip Start Marker ${track}-${clip}`)
+			this.setVariableValues({ [varId]: startMarker.toFixed(2) })
+
+		} else if (address === '/live/clip/get/end_marker') {
+			// args: [track, clip, end_marker]
+			const track = args[0].value + 1
+			const clip = args[1].value + 1
+			const endMarker = args[2].value
+			
+			const varId = `clip_end_marker_${track}_${clip}`
+			this.checkVariableDefinition(varId, `Clip End Marker ${track}-${clip}`)
+			this.setVariableValues({ [varId]: endMarker.toFixed(2) })
+
+		} else if (address === '/live/clip/get/warping') {
+			// args: [track, clip, warping]
+			const track = args[0].value
+			const clip = args[1].value
+			const warping = args[2].value === 1 || args[2].value === true
+			
+			const varId = `clip_warping_${track + 1}_${clip + 1}`
+			this.checkVariableDefinition(varId, `Clip Warping ${track + 1}-${clip + 1}`)
+			
+			// Check if we have a pending toggle operation
+			if (this.pendingWarpingToggle && 
+				this.pendingWarpingToggle.track === track && 
+				this.pendingWarpingToggle.clip === clip) {
+				
+				// Toggle the current state and update variable immediately
+				const newState = !warping
+				this.sendOsc('/live/clip/set/warping', [
+					{ type: 'i', value: track },
+					{ type: 'i', value: clip },
+					{ type: 'i', value: newState ? 1 : 0 }
+				])
+				this.setVariableValues({ [varId]: newState ? 'On' : 'Off' })
+				this.pendingWarpingToggle = null
+			} else {
+				// Normal update from GET request
+				this.setVariableValues({ [varId]: warping ? 'On' : 'Off' })
+			}
+			
+			this.checkFeedbacks('clip_warping')
+
+		} else if (address === '/live/clip/get/looping') {
+			// args: [track, clip, looping]
+			const track = args[0].value
+			const clip = args[1].value
+			const looping = args[2].value === 1 || args[2].value === true
+			
+			const varId = `clip_looping_${track + 1}_${clip + 1}`
+			this.checkVariableDefinition(varId, `Clip Looping ${track + 1}-${clip + 1}`)
+			
+			// Check if we have a pending toggle operation
+			if (this.pendingLoopingToggle && 
+				this.pendingLoopingToggle.track === track && 
+				this.pendingLoopingToggle.clip === clip) {
+				
+				// Toggle the current state and update variable immediately
+				const newState = !looping
+				this.sendOsc('/live/clip/set/looping', [
+					{ type: 'i', value: track },
+					{ type: 'i', value: clip },
+					{ type: 'i', value: newState ? 1 : 0 }
+				])
+				this.setVariableValues({ [varId]: newState ? 'On' : 'Off' })
+				this.pendingLoopingToggle = null
+			} else {
+				// Normal update from GET request
+				this.setVariableValues({ [varId]: looping ? 'On' : 'Off' })
+			}
+			
+			this.checkFeedbacks('clip_looping')
 
 		} else if (address === '/live/track/get/mute') {
 			// args: [track, mute]

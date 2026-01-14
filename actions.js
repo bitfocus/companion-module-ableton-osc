@@ -904,6 +904,335 @@ module.exports = function (self) {
 				self.sendOsc('/live/song/get/num_scenes', [])
 			}
 		},
+		// ============================================================
+		// CLIP LOOP & MARKER ACTIONS
+		// ============================================================
+		clip_set_loop_start_now: {
+			name: 'Clip - Set Loop Start to Now',
+			description: 'Sets the loop start point to the current playback position',
+			options: [
+				{
+					type: 'dropdown',
+					label: 'Clip',
+					id: 'clipId',
+					choices: self.clipChoices,
+					default: self.clipChoices && self.clipChoices.length > 0 ? self.clipChoices[0].id : '1_1',
+					required: true,
+					minChoicesForSearch: 0
+				}
+			],
+			callback: async (event) => {
+				const [trackStr, clipStr] = event.options.clipId.split('_')
+				const track = parseInt(trackStr) - 1
+				const clip = parseInt(clipStr) - 1
+				
+				// Store pending request to chain the commands
+				self.pendingLoopSet = { track, clip, type: 'loop_start' }
+				
+				// Request current playing position
+				self.sendOsc('/live/clip/get/playing_position', [
+					{ type: 'i', value: track },
+					{ type: 'i', value: clip }
+				])
+			}
+		},
+		clip_set_loop_end_now: {
+			name: 'Clip - Set Loop End to Now',
+			description: 'Sets the loop end point to the current playback position',
+			options: [
+				{
+					type: 'dropdown',
+					label: 'Clip',
+					id: 'clipId',
+					choices: self.clipChoices,
+					default: self.clipChoices && self.clipChoices.length > 0 ? self.clipChoices[0].id : '1_1',
+					required: true,
+					minChoicesForSearch: 0
+				}
+			],
+			callback: async (event) => {
+				const [trackStr, clipStr] = event.options.clipId.split('_')
+				const track = parseInt(trackStr) - 1
+				const clip = parseInt(clipStr) - 1
+				
+				self.pendingLoopSet = { track, clip, type: 'loop_end' }
+				
+				self.sendOsc('/live/clip/get/playing_position', [
+					{ type: 'i', value: track },
+					{ type: 'i', value: clip }
+				])
+			}
+		},
+		clip_set_start_marker_now: {
+			name: 'Clip - Set Start Marker to Now',
+			description: 'Sets the start marker to the current playback position',
+			options: [
+				{
+					type: 'dropdown',
+					label: 'Clip',
+					id: 'clipId',
+					choices: self.clipChoices,
+					default: self.clipChoices && self.clipChoices.length > 0 ? self.clipChoices[0].id : '1_1',
+					required: true,
+					minChoicesForSearch: 0
+				}
+			],
+			callback: async (event) => {
+				const [trackStr, clipStr] = event.options.clipId.split('_')
+				const track = parseInt(trackStr) - 1
+				const clip = parseInt(clipStr) - 1
+				
+				self.pendingLoopSet = { track, clip, type: 'start_marker' }
+				
+				self.sendOsc('/live/clip/get/playing_position', [
+					{ type: 'i', value: track },
+					{ type: 'i', value: clip }
+				])
+			}
+		},
+		clip_set_end_marker_now: {
+			name: 'Clip - Set End Marker to Now',
+			description: 'Sets the end marker to the current playback position',
+			options: [
+				{
+					type: 'dropdown',
+					label: 'Clip',
+					id: 'clipId',
+					choices: self.clipChoices,
+					default: self.clipChoices && self.clipChoices.length > 0 ? self.clipChoices[0].id : '1_1',
+					required: true,
+					minChoicesForSearch: 0
+				}
+			],
+			callback: async (event) => {
+				const [trackStr, clipStr] = event.options.clipId.split('_')
+				const track = parseInt(trackStr) - 1
+				const clip = parseInt(clipStr) - 1
+				
+				self.pendingLoopSet = { track, clip, type: 'end_marker' }
+				
+				self.sendOsc('/live/clip/get/playing_position', [
+					{ type: 'i', value: track },
+					{ type: 'i', value: clip }
+				])
+			}
+		},
+		clip_set_loop_start: {
+			name: 'Clip - Set Loop Start (Value)',
+			description: 'Sets the loop start point to a specific beat value',
+			options: [
+				{
+					type: 'dropdown',
+					label: 'Clip',
+					id: 'clipId',
+					choices: self.clipChoices,
+					default: self.clipChoices && self.clipChoices.length > 0 ? self.clipChoices[0].id : '1_1',
+					required: true,
+					minChoicesForSearch: 0
+				},
+				{
+					type: 'textinput',
+					label: 'Beat Position',
+					id: 'position',
+					default: '0',
+					required: true,
+					tooltip: 'Position in beats (e.g., 4.0 for beat 4)'
+				}
+			],
+			callback: async (event) => {
+				const [trackStr, clipStr] = event.options.clipId.split('_')
+				const track = parseInt(trackStr) - 1
+				const clip = parseInt(clipStr) - 1
+				const position = parseFloat(event.options.position) || 0
+				
+				self.sendOsc('/live/clip/set/loop_start', [
+					{ type: 'i', value: track },
+					{ type: 'i', value: clip },
+					{ type: 'f', value: position }
+				])
+			}
+		},
+		clip_set_loop_end: {
+			name: 'Clip - Set Loop End (Value)',
+			description: 'Sets the loop end point to a specific beat value',
+			options: [
+				{
+					type: 'dropdown',
+					label: 'Clip',
+					id: 'clipId',
+					choices: self.clipChoices,
+					default: self.clipChoices && self.clipChoices.length > 0 ? self.clipChoices[0].id : '1_1',
+					required: true,
+					minChoicesForSearch: 0
+				},
+				{
+					type: 'textinput',
+					label: 'Beat Position',
+					id: 'position',
+					default: '16',
+					required: true,
+					tooltip: 'Position in beats (e.g., 16.0 for beat 16)'
+				}
+			],
+			callback: async (event) => {
+				const [trackStr, clipStr] = event.options.clipId.split('_')
+				const track = parseInt(trackStr) - 1
+				const clip = parseInt(clipStr) - 1
+				const position = parseFloat(event.options.position) || 16
+				
+				self.sendOsc('/live/clip/set/loop_end', [
+					{ type: 'i', value: track },
+					{ type: 'i', value: clip },
+					{ type: 'f', value: position }
+				])
+			}
+		},
+		// ============================================================
+		// CLIP WARPING
+		// ============================================================
+		clip_warping_toggle: {
+			name: 'Clip - Warping Toggle',
+			description: 'Toggles warping on/off for the clip',
+			options: [
+				{
+					type: 'dropdown',
+					label: 'Clip',
+					id: 'clipId',
+					choices: self.clipChoices,
+					default: self.clipChoices && self.clipChoices.length > 0 ? self.clipChoices[0].id : '1_1',
+					required: true,
+					minChoicesForSearch: 0
+				},
+				{
+					type: 'dropdown',
+					label: 'Warping State',
+					id: 'state',
+					default: 'toggle',
+					choices: [
+						{ id: 'toggle', label: 'Toggle' },
+						{ id: 'on', label: 'On' },
+						{ id: 'off', label: 'Off' }
+					]
+				}
+			],
+			callback: async (event) => {
+				const [trackStr, clipStr] = event.options.clipId.split('_')
+				const track = parseInt(trackStr) - 1
+				const clip = parseInt(clipStr) - 1
+				const state = event.options.state
+				
+				if (state === 'toggle') {
+					// Get current state first
+					self.pendingWarpingToggle = { track, clip }
+					self.sendOsc('/live/clip/get/warping', [
+						{ type: 'i', value: track },
+						{ type: 'i', value: clip }
+					])
+				} else {
+					self.sendOsc('/live/clip/set/warping', [
+						{ type: 'i', value: track },
+						{ type: 'i', value: clip },
+						{ type: 'i', value: state === 'on' ? 1 : 0 }
+					])
+				}
+			}
+		},
+		// ============================================================
+		// CLIP LOOPING
+		// ============================================================
+		clip_looping_toggle: {
+			name: 'Clip - Looping Toggle',
+			description: 'Toggles looping on/off for the clip',
+			options: [
+				{
+					type: 'dropdown',
+					label: 'Clip',
+					id: 'clipId',
+					choices: self.clipChoices,
+					default: self.clipChoices && self.clipChoices.length > 0 ? self.clipChoices[0].id : '1_1',
+					required: true,
+					minChoicesForSearch: 0
+				},
+				{
+					type: 'dropdown',
+					label: 'Looping State',
+					id: 'state',
+					default: 'toggle',
+					choices: [
+						{ id: 'toggle', label: 'Toggle' },
+						{ id: 'on', label: 'On' },
+						{ id: 'off', label: 'Off' }
+					]
+				}
+			],
+			callback: async (event) => {
+				const [trackStr, clipStr] = event.options.clipId.split('_')
+				const track = parseInt(trackStr) - 1
+				const clip = parseInt(clipStr) - 1
+				const state = event.options.state
+				
+				if (state === 'toggle') {
+					// Get current state first
+					self.pendingLoopingToggle = { track, clip }
+					self.sendOsc('/live/clip/get/looping', [
+						{ type: 'i', value: track },
+						{ type: 'i', value: clip }
+					])
+				} else {
+					self.sendOsc('/live/clip/set/looping', [
+						{ type: 'i', value: track },
+						{ type: 'i', value: clip },
+						{ type: 'i', value: state === 'on' ? 1 : 0 }
+					])
+				}
+			}
+		},
+		clip_get_info: {
+			name: 'Clip - Get Info (Loop/Warp)',
+			description: 'Fetches current loop points, looping state, and warping state for the clip',
+			options: [
+				{
+					type: 'dropdown',
+					label: 'Clip',
+					id: 'clipId',
+					choices: self.clipChoices,
+					default: self.clipChoices && self.clipChoices.length > 0 ? self.clipChoices[0].id : '1_1',
+					required: true,
+					minChoicesForSearch: 0
+				}
+			],
+			callback: async (event) => {
+				const [trackStr, clipStr] = event.options.clipId.split('_')
+				const track = parseInt(trackStr) - 1
+				const clip = parseInt(clipStr) - 1
+				
+				// Request all clip info
+				self.sendOsc('/live/clip/get/loop_start', [
+					{ type: 'i', value: track },
+					{ type: 'i', value: clip }
+				])
+				self.sendOsc('/live/clip/get/loop_end', [
+					{ type: 'i', value: track },
+					{ type: 'i', value: clip }
+				])
+				self.sendOsc('/live/clip/get/start_marker', [
+					{ type: 'i', value: track },
+					{ type: 'i', value: clip }
+				])
+				self.sendOsc('/live/clip/get/end_marker', [
+					{ type: 'i', value: track },
+					{ type: 'i', value: clip }
+				])
+				self.sendOsc('/live/clip/get/looping', [
+					{ type: 'i', value: track },
+					{ type: 'i', value: clip }
+				])
+				self.sendOsc('/live/clip/get/warping', [
+					{ type: 'i', value: track },
+					{ type: 'i', value: clip }
+				])
+			}
+		},
 		raw_osc: {
 			name: 'OSC - Send Raw Command',
 			description: 'Send a custom OSC message to AbletonOSC. Use this for commands not yet implemented in the module.',

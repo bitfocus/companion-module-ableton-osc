@@ -37,6 +37,7 @@ Presets are organized hierarchically by track name for easy navigation:
 - **Fade in/out**: Smooth audio fades for tracks or clips.
 - **Device control**: On/Off, set parameters, visual feedback.
 - **Dynamic variables**: Real-time display of values (level, mute, parameters).
+- **Clip loop/warp control** (v1.2.0): Set loop points to current playback position, toggle warping/looping with visual feedback.
 - **Audio Follow Video (Advanced Fade)**: Automate fades based on a variable (e.g., camera tally). When a camera goes ON AIR, the track fades in; when OFF AIR, it fades out. See the [Advanced Fading Guide](https://github.com/bitfocus/companion-module-ableton-osc/wiki/Advanced-Fading) for details.
 
 ---
