@@ -200,6 +200,30 @@ class AbletonOSCInstance extends InstanceBase {
 		}
 	}
 
+	// Cancel a standard fade out on a track and restore volume (called when clip fires)
+	cancelFadeOutOnTrack(trackIndex) {
+		const fadeId = `track_${trackIndex}`
+		const activeFade = this.activeFades && this.activeFades[fadeId]
+		
+		if (activeFade && activeFade.direction === 'out' && activeFade.subtype !== 'toggle') {
+			// Cancel the fade out and restore volume
+			if (activeFade.interval) {
+				clearInterval(activeFade.interval)
+			}
+			
+			// Restore to original volume
+			this.sendOsc('/live/track/set/volume', [
+				{ type: 'i', value: trackIndex },
+				{ type: 'f', value: activeFade.fromVolume }
+			])
+			
+			delete this.activeFades[fadeId]
+			this.log('info', `Fade Out cancelled on track ${trackIndex + 1} - clip fired, volume restored`)
+			return true
+		}
+		return false
+	}
+
 	setupTrackToggleFade(track, direction, duration, onLevel, offLevel) {
 		const id = `track_${track}`
 		
@@ -484,24 +508,7 @@ class AbletonOSCInstance extends InstanceBase {
 			
 			// Check if a clip started playing and we have an active fade out on this track
 			if (playingClipIndex >= 0) {
-				const fadeId = `track_${trackIndex}`
-				const activeFade = this.activeFades && this.activeFades[fadeId]
-				
-				if (activeFade && activeFade.direction === 'out' && activeFade.subtype !== 'toggle') {
-					// Cancel the fade out and restore volume
-					if (activeFade.interval) {
-						clearInterval(activeFade.interval)
-					}
-					
-					// Restore to original volume
-					this.sendOsc('/live/track/set/volume', [
-						{ type: 'i', value: trackIndex },
-						{ type: 'f', value: activeFade.fromVolume }
-					])
-					
-					delete this.activeFades[fadeId]
-					this.log('info', `Fade Out cancelled on track ${track} - clip started playing, volume restored`)
-				}
+				this.cancelFadeOutOnTrack(trackIndex)
 			}
 			
 			// Update all clips for this track

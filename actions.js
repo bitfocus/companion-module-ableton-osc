@@ -17,6 +17,10 @@ module.exports = function (self) {
 				const [trackStr, clipStr] = event.options.clipId.split('_')
 				const track = parseInt(trackStr) - 1
 				const clip = parseInt(clipStr) - 1
+				
+				// Cancel any active fade out on this track
+				self.cancelFadeOutOnTrack(track)
+				
 				self.sendOsc('/live/clip_slot/fire', [
 					{
 						type: 'i',
