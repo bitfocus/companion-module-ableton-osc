@@ -207,14 +207,11 @@ class AbletonOSCInstance extends InstanceBase {
 
 		// Check for existing fade to interrupt
 		const existingFade = this.activeFades[id]
-		let currentValue = undefined
 
 		if (existingFade) {
 			if (existingFade.interval) {
 				clearInterval(existingFade.interval)
 			}
-			// If we interrupt, we need to know the current value to avoid jumps
-			currentValue = existingFade.currentValue
 		}
 		
 		this.activeFades[id] = {
@@ -227,8 +224,7 @@ class AbletonOSCInstance extends InstanceBase {
 			state: 'init',
 			stopClips: false,
 			onLevel: onLevel,
-			offLevel: offLevel,
-			interruptedValue: currentValue
+			offLevel: offLevel
 		}
 
 		this.sendOsc('/live/track/get/volume', [
@@ -258,15 +254,26 @@ class AbletonOSCInstance extends InstanceBase {
 				toVolume = fade.onLevel
 			}
 			
-			// If we were interrupted, start from current position
-			if (fade.interruptedValue !== undefined) {
-				// Calculate progress based on where we are in the range
-				const range = Math.abs(fromVolume - toVolume)
-				if (range > 0.001) {
-					const currentPos = Math.abs(startValue - fromVolume) / range
-					const initialProgress = Math.min(1, Math.max(0, currentPos))
-					fade.startTime -= (initialProgress * fade.duration)
+			// ALWAYS calculate initial progress based on current OSC value (startValue)
+			// This ensures smooth transitions when interrupting a fade
+			const range = Math.abs(toVolume - fromVolume)
+			if (range > 0.001) {
+				// Calculate how far along the path from fromVolume to toVolume we currently are
+				// Based on the ACTUAL current volume from Ableton (startValue)
+				let currentProgress
+				if (toVolume > fromVolume) {
+					// Fading up: progress = (current - from) / (to - from)
+					currentProgress = (startValue - fromVolume) / (toVolume - fromVolume)
+				} else {
+					// Fading down: progress = (from - current) / (from - to)
+					currentProgress = (fromVolume - startValue) / (fromVolume - toVolume)
 				}
+				currentProgress = Math.min(1, Math.max(0, currentProgress))
+				
+				// Adjust startTime to account for existing progress
+				fade.startTime -= (currentProgress * fade.duration)
+				
+				this.log('debug', `Fade ${id}: Starting from ${(startValue * 100).toFixed(1)}% (progress: ${(currentProgress * 100).toFixed(1)}%)`)
 			}
 		} else {
 			// Standard Fade (clip gain, etc.)
