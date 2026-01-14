@@ -478,8 +478,31 @@ class AbletonOSCInstance extends InstanceBase {
 
 		} else if (address === '/live/track/get/playing_slot_index') {
 			// args: [track, clip_index]
-			const track = args[0].value + 1
+			const trackIndex = args[0].value  // 0-based
+			const track = trackIndex + 1      // 1-based for display
 			const playingClipIndex = args[1].value // 0-based index of playing clip, or -1 if none
+			
+			// Check if a clip started playing and we have an active fade out on this track
+			if (playingClipIndex >= 0) {
+				const fadeId = `track_${trackIndex}`
+				const activeFade = this.activeFades && this.activeFades[fadeId]
+				
+				if (activeFade && activeFade.direction === 'out' && activeFade.subtype !== 'toggle') {
+					// Cancel the fade out and restore volume
+					if (activeFade.interval) {
+						clearInterval(activeFade.interval)
+					}
+					
+					// Restore to original volume
+					this.sendOsc('/live/track/set/volume', [
+						{ type: 'i', value: trackIndex },
+						{ type: 'f', value: activeFade.fromVolume }
+					])
+					
+					delete this.activeFades[fadeId]
+					this.log('info', `Fade Out cancelled on track ${track} - clip started playing, volume restored`)
+				}
+			}
 			
 			// Update all clips for this track
 			// We iterate through known scenes (or up to numScenes)

@@ -835,13 +835,21 @@ module.exports = function (self) {
 			callback: async (event) => {
 				const track = event.options.track - 1
 				
-				// Parse state
-				let state = await self.parseVariablesInString(event.options.state)
+				// Parse state - auto-wrap in $() if user forgot
+				let stateInput = event.options.state
+				if (stateInput && !stateInput.includes('$(') && stateInput.includes(':')) {
+					// User likely forgot $() wrapper, add it
+					stateInput = `$(${stateInput})`
+				}
+				
+				let state = await self.parseVariablesInString(stateInput)
 				if (typeof state === 'string') {
 					state = state.toLowerCase().trim()
 				}
 				
 				const isTrue = (state === 'true' || state === '1' || state === 'on')
+				
+				self.log('debug', `Fade by State: input="${stateInput}" parsed="${state}" isTrue=${isTrue}`)
 				
 				const riseTime = event.options.rise_time
 				const fallTime = event.options.fall_time
