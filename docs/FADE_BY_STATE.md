@@ -11,7 +11,7 @@ The action monitors a specific variable (the "State").
 * When the variable becomes **True** (or `1`, `on`), the track fades to the **On Level**.
 * When the variable becomes **False** (or `0`, `off`), the track fades to the **Off Level**.
 
-## The 6 Parameters
+## The 8 Parameters
 
 ### 1. State (True/False)
 * **What it does**: The variable to monitor. Use Companion variable syntax like `$(module:variable)`.
@@ -60,10 +60,9 @@ Let's say you have a camera connected to your switcher, and you are using a Comp
 ### Step-by-Step Setup
 
 1. **Create a Trigger** in Companion.
-2. **Event**: Select "On condition becoming true".
-3. **Condition**: Choose "Variable value changed".
-    * Variable: `$(umd:tally_1)`
-4. **Action**: Add the action **Ableton Live (OSC): Fade Track by State**.
+2. **Event**: Select "On variable change".
+    * **Variable to watch**: `$(umd:tally_1)`
+4. **Action**: Add the action **ableton: Track - Fade by State of a variable**.
 5. **Configure the Action**:
     * **State**: Enter the variable name: `$(umd:tally_1)`.
     * **Track**: Select the audio track corresponding to Camera 1 (e.g., "Cam 1 Mic").
@@ -74,11 +73,11 @@ Let's say you have a camera connected to your switcher, and you are using a Comp
 ## Visual Timeline
 
 ```text
-Variable:    [FALSE] ----------------> [TRUE] -------------------------> [FALSE] ----------------->
-Timeline:             | Hold |  Rise  |        (At On Level)            |  On Time  |   Fall   |
-Volume:     [Off] ----|______|/ / / / |_________________________________|___________|\ \ \ \ \ |-- [Off]
-                      ↑               ↑                                 ↑                       ↑
-                Off Level          On Level                          On Level               Off Level
+Variable:   [FALSE]---> [TRUE] ---------------------------------> [FALSE] --------------->
+Timeline:               | Hold |  Rise  |        (At On Level)    |  On Time  |   Fall   |
+Volume:     [Off] ------|______|/ / / / |_________________________|___________|\ \ \ \ \ |-- [Off]
+                        ↑               ↑                                     ↑          ↑
+                        Off Level       On Level                              On Level   Off Level
 ```
 
 ## Example Configuration
