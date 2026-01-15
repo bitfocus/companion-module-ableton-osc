@@ -3,13 +3,17 @@ const osc = require('osc')
 const UpdateActions = require('./actions')
 const UpdateFeedbacks = require('./feedbacks')
 const UpdateVariables = require('./variables')
-
 const UpdatePresets = require('./presets')
+
+// ============================================================
+// ABLETON OSC INSTANCE
+// ============================================================
 
 class AbletonOSCInstance extends InstanceBase {
 	constructor(internal) {
 		super(internal)
 		
+		// State storage
 		this.clipColors = {}
 		this.trackLevels = {}
 		this.trackLevelsLeft = {}
@@ -19,28 +23,38 @@ class AbletonOSCInstance extends InstanceBase {
 		this.deviceNames = {}
 		this.clipPlaying = {}
 		this.trackDelays = {}
+		this.sceneNames = {}
+		this.clipNames = {}
+		this.clipSlotHasClip = {}
+		
+		// Configuration
 		this.variableDefinitions = []
 		this.numTracks = 8
 		this.numScenes = 8
+		this.knownParameters = []
+		
+		// Runtime state
 		this.activeFades = {}
 		this.blinkState = false
 		this.variableIds = new Set()
 		this.activeParameterListeners = new Set()
 		this.monitoredDeviceParameters = new Set()
 		this.selectedParameter = null
-		this.knownParameters = [] // Array of { id: 't_d_p', label: '...' }
-		this.sceneNames = {} // Store scene names
-		this.clipNames = {} // Store clip names
-		this.clipSlotHasClip = {} // Track which slots have clips
-		this.pendingClipInfoRequests = new Set() // Pending has_clip requests
-		this.updateDebounceTimer = null // Debounce timer for UI updates
-		this.lastMeterUpdate = 0 // Throttle meter feedback updates
-		this.meterUpdateInterval = 50 // Minimum ms between meter feedback updates
-		this.variableDefinitionsDirty = false // Track if variable definitions need updating
-		this.variableDefinitionsTimer = null // Timer for batched variable definition updates
-		this.lastPresetsHash = '' // Hash to detect if presets changed
-		this.isScanning = false // Flag to batch updates during scan
+		this.pendingClipInfoRequests = new Set()
+		this.lastPresetsHash = ''
+		this.isScanning = false
+		
+		// Timers and throttling
+		this.updateDebounceTimer = null
+		this.lastMeterUpdate = 0
+		this.meterUpdateInterval = 50
+		this.variableDefinitionsDirty = false
+		this.variableDefinitionsTimer = null
 	}
+
+	// ============================================================
+	// LIFECYCLE
+	// ============================================================
 
 	async init(config) {
 		this.config = config
@@ -200,7 +214,14 @@ class AbletonOSCInstance extends InstanceBase {
 		}
 	}
 
-	// Cancel a standard fade out on a track and restore volume (called when clip fires)
+	// ============================================================
+	// FADE MANAGEMENT
+	// ============================================================
+
+	/**
+	 * Cancel an active fade out on a track and restore volume
+	 * Called when a clip is fired during a fade out
+	 */
 	cancelFadeOutOnTrack(trackIndex) {
 		const fadeId = `track_${trackIndex}`
 		const activeFade = this.activeFades && this.activeFades[fadeId]
@@ -224,18 +245,22 @@ class AbletonOSCInstance extends InstanceBase {
 		return false
 	}
 
+	/**
+	 * Setup a toggle fade (Fade by State)
+	 * @param {number} track - Track index (0-based)
+	 * @param {string} direction - 'in' or 'out'
+	 * @param {number} duration - Fade duration in ms
+	 * @param {number} onLevel - Target volume when ON (0-1)
+	 * @param {number} offLevel - Target volume when OFF (0-1)
+	 */
 	setupTrackToggleFade(track, direction, duration, onLevel, offLevel) {
 		const id = `track_${track}`
 		
 		if (!this.activeFades) this.activeFades = {}
 
-		// Check for existing fade to interrupt
 		const existingFade = this.activeFades[id]
-
-		if (existingFade) {
-			if (existingFade.interval) {
-				clearInterval(existingFade.interval)
-			}
+		if (existingFade && existingFade.interval) {
+			clearInterval(existingFade.interval)
 		}
 		
 		this.activeFades[id] = {
@@ -256,45 +281,39 @@ class AbletonOSCInstance extends InstanceBase {
 		])
 	}
 
+	/**
+	 * Start the actual fade animation after receiving current volume from OSC
+	 */
 	startFade(id, startValue) {
 		const fade = this.activeFades[id]
 		if (!fade) return
 
 		fade.state = 'fading'
-		fade.currentValue = startValue  // Track current value for interruptions
+		fade.currentValue = startValue
 		
-		// Determine start and target volumes
 		let fromVolume, toVolume
 		
 		if (fade.subtype === 'toggle') {
-			// Toggle fade uses explicit onLevel and offLevel
+			// Toggle fade: use explicit onLevel and offLevel
 			if (fade.direction === 'out') {
-				// Fade Out: from onLevel to offLevel
 				fromVolume = fade.onLevel
 				toVolume = fade.offLevel
 			} else {
-				// Fade In: from offLevel to onLevel
 				fromVolume = fade.offLevel
 				toVolume = fade.onLevel
 			}
 			
-			// ALWAYS calculate initial progress based on current OSC value (startValue)
-			// This ensures smooth transitions when interrupting a fade
+			// Calculate initial progress based on actual current volume
+			// Enables smooth transitions when interrupting a fade
 			const range = Math.abs(toVolume - fromVolume)
 			if (range > 0.001) {
-				// Calculate how far along the path from fromVolume to toVolume we currently are
-				// Based on the ACTUAL current volume from Ableton (startValue)
 				let currentProgress
 				if (toVolume > fromVolume) {
-					// Fading up: progress = (current - from) / (to - from)
 					currentProgress = (startValue - fromVolume) / (toVolume - fromVolume)
 				} else {
-					// Fading down: progress = (from - current) / (from - to)
 					currentProgress = (fromVolume - startValue) / (fromVolume - toVolume)
 				}
 				currentProgress = Math.min(1, Math.max(0, currentProgress))
-				
-				// Adjust startTime to account for existing progress
 				fade.startTime -= (currentProgress * fade.duration)
 				
 				this.log('debug', `Fade ${id}: Starting from ${(startValue * 100).toFixed(1)}% (progress: ${(currentProgress * 100).toFixed(1)}%)`)
@@ -442,12 +461,16 @@ class AbletonOSCInstance extends InstanceBase {
 		}, intervalTime)
 	}
 
+	// ============================================================
+	// OSC MESSAGE PROCESSING
+	// ============================================================
+
 	processOscMessage(msg) {
 		try {
 			const address = msg.address
 			const args = msg.args
 
-			// Filter out meter messages from debug log and variable update to prevent flooding
+			// Filter out meter messages from debug log to prevent flooding
 			if (!address.includes('output_meter')) {
 				this.log('debug', `OSC Received: ${address} ${JSON.stringify(args)}`)
 				this.setVariableValues({ last_message: address })
@@ -846,10 +869,7 @@ class AbletonOSCInstance extends InstanceBase {
 			const track = args[0].value + 1
 			const device = args[1].value + 1
 			
-			// We need to store these to build the dropdown
-			// We can append to this.knownParameters
-			
-			// First, remove existing parameters for this device to avoid duplicates if re-scanned
+			// Remove existing parameters for this device to avoid duplicates on re-scan
 			const prefix = `${track}_${device}_`
 			this.knownParameters = this.knownParameters.filter(p => !p.id.startsWith(prefix))
 			
@@ -878,8 +898,7 @@ class AbletonOSCInstance extends InstanceBase {
 			this.log('warn', `AbletonOSC Error: ${errorMsg}`)
 
 		} else {
-			// Generic handler for unhandled OSC responses (Raw OSC feedback)
-			// Store the response in a variable based on the address
+			// Generic handler for unhandled OSC responses
 			this.handleRawOscResponse(address, args)
 		}
 		} catch (e) {
@@ -887,35 +906,35 @@ class AbletonOSCInstance extends InstanceBase {
 		}
 	}
 
+	// ============================================================
+	// RAW OSC HANDLING
+	// ============================================================
+
+	/**
+	 * Handle unrecognized OSC responses and store them as variables
+	 */
 	handleRawOscResponse(address, args) {
-		// Convert address to variable-safe name: /live/song/get/tempo -> live_song_get_tempo
 		const varName = 'raw_' + address.replace(/^\//,'').replace(/\//g, '_')
 		
-		// Format the value(s) for display
 		let displayValue = ''
 		if (args.length === 0) {
 			displayValue = '(no value)'
 		} else if (args.length === 1) {
 			displayValue = String(args[0].value)
 		} else {
-			// Multiple values: join with comma
 			displayValue = args.map(a => String(a.value)).join(', ')
 		}
 		
-		// Store full response for advanced use
 		const fullValue = args.map(a => `${a.type}:${a.value}`).join(', ')
 		
-		// Ensure variable exists
 		this.checkVariableDefinition(varName, `Raw: ${address}`)
 		this.checkVariableDefinition(varName + '_full', `Raw Full: ${address}`)
 		
-		// Update variable values
 		this.setVariableValues({
 			[varName]: displayValue,
 			[varName + '_full']: fullValue
 		})
 		
-		// Also store the last raw response for quick access
 		this.setVariableValues({
 			'last_raw_response': displayValue,
 			'last_raw_address': address
@@ -923,6 +942,10 @@ class AbletonOSCInstance extends InstanceBase {
 		
 		this.log('debug', `Raw OSC Response: ${address} = ${displayValue}`)
 	}
+
+	// ============================================================
+	// CLIP & PROJECT SCANNING
+	// ============================================================
 
 	fetchClipInfo() {
 		if (this.fetchTimeout) clearTimeout(this.fetchTimeout)
@@ -1007,13 +1030,20 @@ class AbletonOSCInstance extends InstanceBase {
 		}, 200)
 	}
 
+	// ============================================================
+	// VARIABLE MANAGEMENT
+	// ============================================================
+
+	/**
+	 * Ensure a variable definition exists, creating it if needed
+	 * Updates are batched to avoid performance issues
+	 */
 	checkVariableDefinition(id, name) {
 		if (!this.variableIds.has(id)) {
 			this.variableIds.add(id)
 			this.variableDefinitions.push({ variableId: id, name: name })
 			this.variableDefinitionsDirty = true
 			
-			// Batch variable definition updates with a timer
 			if (!this.variableDefinitionsTimer) {
 				this.variableDefinitionsTimer = setTimeout(() => {
 					if (this.variableDefinitionsDirty) {
@@ -1021,10 +1051,14 @@ class AbletonOSCInstance extends InstanceBase {
 						this.variableDefinitionsDirty = false
 					}
 					this.variableDefinitionsTimer = null
-				}, 100) // Batch updates every 100ms
+				}, 100)
 			}
 		}
 	}
+
+	// ============================================================
+	// UI INITIALIZATION
+	// ============================================================
 
 	initActions() {
 		// Generate Track Choices
@@ -1041,19 +1075,12 @@ class AbletonOSCInstance extends InstanceBase {
 			this.sceneChoices.push({ id: i, label: `${i}: ${name}` })
 		}
 
-		// Generate Clip Choices (Combined Track + Clip)
+		// Generate Clip Choices
 		this.clipChoices = []
-		// We iterate over tracks and scenes to build a flat list of clips
-		// This might be large, but it's the only way to show specific clip names
 		for (let t = 1; t <= this.numTracks; t++) {
 			const trackName = this.getVariableValue(`track_name_${t}`) || `Track ${t}`
 			for (let s = 1; s <= this.numScenes; s++) {
 				const clipName = this.clipNames[`${t}_${s}`]
-				// Only add if we have a name or just add all?
-				// Adding all 8x8 = 64 is fine. 100x100 = 10000 is too much.
-				// Let's limit to what we scanned.
-				// If clipName is undefined, it might be empty slot or not scanned.
-				// We'll add it anyway as "Track X - Scene Y" if no name.
 				const label = clipName ? `${trackName} - ${clipName}` : `${trackName} - Scene ${s}`
 				this.clipChoices.push({ id: `${t}_${s}`, label: label })
 			}
@@ -1093,6 +1120,10 @@ class AbletonOSCInstance extends InstanceBase {
 		UpdatePresets(this)
 	}
 
+	// ============================================================
+	// FEEDBACK SUBSCRIPTIONS
+	// ============================================================
+
 	subscribe(feedback) {
 		if (feedback.type === 'device_active') {
 			const track = (feedback.options.track || 1) - 1
@@ -1100,14 +1131,11 @@ class AbletonOSCInstance extends InstanceBase {
 			const parameter = (feedback.options.parameter || 1) - 1
 			
 			const key = `${track}_${device}_${parameter}`
-			
 			this.log('debug', `Subscribing to device parameter: ${key}`)
 
-			// We could count subscribers, but for now just ensure we listen
 			if (!this.activeParameterListeners.has(key)) {
 				this.activeParameterListeners.add(key)
 				
-				// Only send if OSC is ready
 				if (this.oscPort) {
 					this.sendOsc('/live/device/start_listen/parameter/value', [
 						{ type: 'i', value: track },
@@ -1120,8 +1148,12 @@ class AbletonOSCInstance extends InstanceBase {
 	}
 
 	unsubscribe(feedback) {
-		// Optional: Implement reference counting to stop listening when no feedbacks use this parameter
+		// Optional: implement reference counting to stop listening
 	}
+
+	// ============================================================
+	// UTILITIES
+	// ============================================================
 
 	startBlink() {
 		if (this.blinkInterval) clearInterval(this.blinkInterval)
@@ -1140,13 +1172,15 @@ class AbletonOSCInstance extends InstanceBase {
 		}
 	}
 
-	// Debounced UI update to avoid flooding initActions/initFeedbacks calls
+	/**
+	 * Schedule a debounced UI update
+	 * Uses longer delay during scanning to batch all updates
+	 */
 	scheduleUiUpdate() {
 		if (this.updateDebounceTimer) {
 			clearTimeout(this.updateDebounceTimer)
 		}
 		
-		// Use longer delay during scanning to batch all updates
 		const delay = this.isScanning ? 1000 : 250
 		
 		this.updateDebounceTimer = setTimeout(() => {

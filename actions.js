@@ -181,9 +181,7 @@ module.exports = function (self) {
 
 				if (state === 'toggle') {
 					const current = self.deviceParameters[`${track + 1}_${device + 1}_${parameter + 1}`]
-					// If current is undefined, assume it's on (1) so we turn it off, or vice versa. 
-					// Safer to assume 0 if unknown? Or maybe we can't toggle if unknown.
-					// Let's assume 0 if undefined.
+					// Default to 0 if value unknown
 					const currentVal = current !== undefined ? current : 0
 					state = currentVal > 0.5 ? 'off' : 'on'
 				}
