@@ -82,4 +82,4 @@ Volume:     [Off] ------|______|/ / / / |_________________________|___________|\
 
 ## Example Configuration
 
-![Audio Follow Video Timeline](../img/AfV.png)
+<img src="img/AfV.png" alt="Audio Follow Video Timeline" style="max-width: 600px; display: block; margin: 1em auto;">
