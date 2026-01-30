@@ -21,7 +21,7 @@
     "osc": "^2.4.4"
   },
   "devDependencies": {
-    "@companion-module/tools": "^2.4.2",
+    "@companion-module/tools": "^2.6.1",
     "prettier": "^3.6.2"
   },
   "prettier": "@companion-module/tools/.prettierrc.json",
