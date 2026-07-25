@@ -1,9 +1,17 @@
 
 # Ableton OSC Companion Module - Quick Help
 
+> **⚠️ WARNING — Companion 5+ required**
+>
+> Starting from version **2.x.x**, this module requires Companion **5+**.
+> If you want to use it with Companion 4.x, choose version **1.2.2**.
+>
+> Upgrading from 1.x: the **Track Meter Visual** feedback (PNG bargraph) is gone. Meters, volume
+> and parameter values are now native Companion **gauge** elements bound to variables.
+
 Welcome! This Companion module lets you control Ableton Live via OSC, with advanced visual feedback (clip names, colors, meters, etc.).
 
-![Main Example](https://raw.githubusercontent.com/bitfocus/companion-module-ableton-osc/refs/heads/main/img/main_example.png)
+![Main Example](main_example_new.png)
 
 ## Quick Setup
 

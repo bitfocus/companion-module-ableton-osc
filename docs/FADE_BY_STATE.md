@@ -4,6 +4,8 @@ This module includes a powerful action called **Fade Track by State**, also call
 
 This is particularly useful for broadcast workflows where you want to automatically open a microphone when a camera goes ON AIR, and close it when it goes OFF AIR.
 
+▶️ [**Watch the demo video**](../img/AfV_video.mp4) — a microphone track opening and closing as the camera tally changes.
+
 ## The Concept
 
 The action monitors a specific variable (the "State").
@@ -62,8 +64,8 @@ Let's say you have a camera connected to your switcher, and you are using a Comp
 1. **Create a Trigger** in Companion.
 2. **Event**: Select "On variable change".
     * **Variable to watch**: `$(umd:tally_1)`
-4. **Action**: Add the action **ableton: Track - Fade by State of a variable**.
-5. **Configure the Action**:
+3. **Action**: Add the action **ableton: Track - Fade by State of a variable**.
+4. **Configure the Action**:
     * **State**: Enter the variable name: `$(umd:tally_1)`.
     * **Track**: Select the audio track corresponding to Camera 1 (e.g., "Cam 1 Mic").
     * **On Level**: 85% (or your desired level)

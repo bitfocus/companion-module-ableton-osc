@@ -3,7 +3,7 @@
 ## Prerequisites
 
 - **Ableton Live** (Version 11 or 12)
-- **Bitfocus Companion**
+- **Bitfocus Companion 5+** (for Companion 4.x, use module version **1.2.2**)
 - The **AbletonOSC** script installed in Ableton Live.
 
 ## Installing AbletonOSC
@@ -36,8 +36,10 @@ For this module to work, you must install the remote script in Ableton Live:
 **Before using any buttons, you MUST run the "Scan Project" action.**
 
 1. Go to the **Presets** tab.
-2. Open the **Utility** category.
-3. Drag the **Scan Project** button (Yellow background) to your surface.
+2. Open the **0. Start Here** category.
+3. Drag the 🔍 **Scan Project** button to your surface.
 4. Press the button.
 
 This will fetch the number of tracks, scenes, clip names, device parameters and colors from your current Ableton project. Without this step, buttons may not work or display correct information.
+
+The other preset categories (Clips, Tracks, Devices, Device Params) are only populated **after** this scan: reopen the Presets tab once it has run to see your clips and tracks appear, named and colored as in Live.
