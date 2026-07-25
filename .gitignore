@@ -1,7 +1,9 @@
 node_modules/
 .vscode/
+.claude/
 *.log
 .DS_Store
 pkg/
 *.tgz
 .yarn/*
+todo/

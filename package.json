@@ -1,10 +1,11 @@
 {
   "name": "companion-module-ableton-osc",
-  "version": "1.2.2",
+  "version": "2.0.0",
   "main": "main.js",
   "scripts": {
     "format": "prettier -w .",
-    "package": "companion-module-build"
+    "package": "companion-module-build",
+    "smoke": "node tools/smoke.js"
   },
   "license": "MIT",
   "repository": {
@@ -16,13 +17,12 @@
     "yarn": "^4"
   },
   "dependencies": {
-    "@companion-module/base": "~1.12.1",
-    "jimp": "^1.6.0",
+    "@companion-module/base": "^2.1.2",
     "osc": "^2.4.4"
   },
   "devDependencies": {
-    "@companion-module/tools": "^2.4.2",
-    "prettier": "^3.6.2"
+    "@companion-module/tools": "^3.0.2",
+    "prettier": "^3.8.1"
   },
   "prettier": "@companion-module/tools/.prettierrc.json",
   "packageManager": "yarn@4.10.3"
