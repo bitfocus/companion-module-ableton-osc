@@ -20,7 +20,8 @@ For this module to work, you must install the remote script in Ableton Live:
 
 5. Restart Ableton.
 6. In **Preferences** > **Link / Tempo / MIDI**, under the Control Surface dropdown, select the new "AbletonOSC" option. Live should display a message saying "AbletonOSC: Listening for OSC on port 11000".
-7. Verify that the default ports are 11000 (Input) and 11001 (Output). If you change them, note them down for Companion configuration.
+7. Verify that the default ports are 11000 (Input) and 11001 (Output).
+   If you need to change them, you can do so by editing the file abletonosc/constants.py.
 
 ## Configuration in Companion
 
