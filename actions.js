@@ -1,4 +1,21 @@
 module.exports = function (self) {
+	/**
+	 * Expose a device parameter as a variable and subscribe to its value so it stays current.
+	 * Indexes are 0-based, matching what AbletonOSC expects on the wire.
+	 */
+	const monitorDeviceParameter = (paramId, track, device, parameter) => {
+		const varId = `device_param_${track + 1}_${device + 1}_${parameter + 1}`
+		if (self.monitoredDeviceParameters.has(varId)) return
+
+		self.monitoredDeviceParameters.add(varId)
+
+		const paramObj = self.knownParameters.find((p) => p.id === paramId)
+		const paramName = paramObj ? paramObj.label : `Device Param ${track + 1}-${device + 1}-${parameter + 1}`
+		self.checkVariableDefinition(varId, paramName)
+
+		self.listenToDeviceParameter(track, device, parameter)
+	}
+
 	self.setActionDefinitions({
 		fire_clip: {
 			name: 'Clip - Fire',
@@ -9,7 +26,6 @@ module.exports = function (self) {
 					id: 'clipId',
 					choices: self.clipChoices,
 					default: self.clipChoices && self.clipChoices.length > 0 ? self.clipChoices[0].id : '1_1',
-					required: true,
 					minChoicesForSearch: 0
 				}
 			],
@@ -42,7 +58,6 @@ module.exports = function (self) {
 					id: 'clipId',
 					choices: self.clipChoices,
 					default: self.clipChoices && self.clipChoices.length > 0 ? self.clipChoices[0].id : '1_1',
-					required: true,
 					minChoicesForSearch: 0
 				}
 			],
@@ -70,8 +85,7 @@ module.exports = function (self) {
 					label: 'Track',
 					id: 'track',
 					choices: self.trackChoices,
-					default: self.trackChoices[0].id,
-					required: true
+					default: self.trackChoices[0].id
 				}
 			],
 			callback: async (event) => {
@@ -92,8 +106,7 @@ module.exports = function (self) {
 					label: 'Track',
 					id: 'track',
 					choices: self.trackChoices,
-					default: self.trackChoices[0].id,
-					required: true
+					default: self.trackChoices[0].id
 				},
 				{
 					type: 'dropdown',
@@ -112,8 +125,7 @@ module.exports = function (self) {
 				let mute = event.options.mute
 				
 				if (mute === 'toggle') {
-					// Invert current state
-					// trackMutes is 1-based
+					// trackMutes is keyed 1-based and kept current by the /live/track/start_listen/mute subscription
 					const current = self.trackMutes[event.options.track]
 					mute = current ? 'off' : 'on'
 				}
@@ -140,8 +152,7 @@ module.exports = function (self) {
 					label: 'Device',
 					id: 'device',
 					choices: self.deviceChoices,
-					default: self.deviceChoices[0].id,
-					required: true
+					default: self.deviceChoices[0].id
 				},
 				{
 					type: 'number',
@@ -149,8 +160,7 @@ module.exports = function (self) {
 					id: 'parameter',
 					min: 1,
 					max: 1000,
-					default: 1,
-					required: true
+					default: 1
 				},
 				{
 					type: 'dropdown',
@@ -171,13 +181,10 @@ module.exports = function (self) {
 				const parameter = event.options.parameter - 1
 				let state = event.options.state
 				
-				// Ensure we are listening to this parameter (Fix for "Toggle works only once")
-				// We send this every time to be safe, it's cheap.
-				self.sendOsc('/live/device/start_listen/parameter/value', [
-					{ type: 'i', value: track },
-					{ type: 'i', value: device },
-					{ type: 'i', value: parameter }
-				])
+				// Toggling reads the cached value, so re-arm the subscription on every press:
+				// without it a listener Live has dropped leaves the cache frozen and the toggle
+				// only ever works once
+				self.listenToDeviceParameter(track, device, parameter, { force: true })
 
 				if (state === 'toggle') {
 					const current = self.deviceParameters[`${track + 1}_${device + 1}_${parameter + 1}`]
@@ -211,8 +218,7 @@ module.exports = function (self) {
 					type: 'textinput',
 					label: 'Value (0-100)',
 					id: 'value',
-					default: '50',
-					required: true
+					default: '50'
 				},
 				{
 					type: 'checkbox',
@@ -232,35 +238,11 @@ module.exports = function (self) {
 				const device = parseInt(deviceStr) - 1
 				const parameter = parseInt(parameterStr) - 1
 				const value = parseFloat(event.options.value) / 100.0
-				
+
 				if (event.options.create_variable) {
-					const varId = `device_param_${track + 1}_${device + 1}_${parameter + 1}`
-					
-					if (!self.monitoredDeviceParameters.has(varId)) {
-						self.monitoredDeviceParameters.add(varId)
-						
-						const exists = self.variableDefinitions.find(v => v.variableId === varId)
-						if (!exists) {
-							const paramObj = self.knownParameters.find(p => p.id === paramId)
-							const paramName = paramObj ? paramObj.label : `Device Param ${track + 1}-${device + 1}-${parameter + 1}`
-							
-							self.variableDefinitions.push({
-								variableId: varId,
-								name: paramName
-							})
-							self.setVariableDefinitions(self.variableDefinitions)
-						}
-						
-						self.sendOsc('/live/device/start_listen/parameter/value', [
-							{ type: 'i', value: track },
-							{ type: 'i', value: device },
-							{ type: 'i', value: parameter }
-						])
-						
-						self.activeParameterListeners.add(`${track}_${device}_${parameter}`)
-					}
+					monitorDeviceParameter(paramId, track, device, parameter)
 				}
-				
+
 				self.sendOsc('/live/device/set/parameter/value', [
 					{ type: 'i', value: track },
 					{ type: 'i', value: device },
@@ -284,8 +266,7 @@ module.exports = function (self) {
 					type: 'textinput',
 					label: 'Step (e.g. 1, 5, -5) (Scale 0-100)',
 					id: 'step',
-					default: '1',
-					required: true
+					default: '1'
 				},
 				{
 					type: 'checkbox',
@@ -305,33 +286,12 @@ module.exports = function (self) {
 				const device = parseInt(deviceStr) - 1
 				const parameter = parseInt(parameterStr) - 1
 				const step = parseFloat(event.options.step) / 100.0
-				
-				self.sendOsc('/live/device/start_listen/parameter/value', [
-					{ type: 'i', value: track },
-					{ type: 'i', value: device },
-					{ type: 'i', value: parameter }
-				])
+
+				// Stepping reads the cached value, so re-arm the subscription on every press
+				self.listenToDeviceParameter(track, device, parameter, { force: true })
 
 				if (event.options.create_variable) {
-					const varId = `device_param_${track + 1}_${device + 1}_${parameter + 1}`
-					
-					if (!self.monitoredDeviceParameters.has(varId)) {
-						self.monitoredDeviceParameters.add(varId)
-						
-						const exists = self.variableDefinitions.find(v => v.variableId === varId)
-						if (!exists) {
-							const paramObj = self.knownParameters.find(p => p.id === paramId)
-							const paramName = paramObj ? paramObj.label : `Device Param ${track + 1}-${device + 1}-${parameter + 1}`
-							
-							self.variableDefinitions.push({
-								variableId: varId,
-								name: paramName
-							})
-							self.setVariableDefinitions(self.variableDefinitions)
-						}
-						
-						self.activeParameterListeners.add(`${track}_${device}_${parameter}`)
-					}
+					monitorDeviceParameter(paramId, track, device, parameter)
 				}
 
 				const key = `${track + 1}_${device + 1}_${parameter + 1}`
@@ -385,46 +345,51 @@ module.exports = function (self) {
 				const paramObj = self.knownParameters.find(p => p.id === paramId)
 				const paramName = paramObj ? paramObj.label : `T${track} D${device} P${parameter}`
 
+				// Labels are built as "Track > Device > Parameter": keep only the last
+				// segment for the short variant used on small buttons
+				const paramNameShort = paramName.split(' > ').pop()
+
 				self.setVariableValues({
 					selected_parameter_track: track,
 					selected_parameter_device: device,
 					selected_parameter_num: parameter,
 					selected_parameter_value: '...', // Reset while fetching
-					selected_parameter_name: paramName
+					selected_parameter_name: paramName,
+					selected_parameter_name_short: paramNameShort
 				})
 
-				// Handle custom variable creation
+				// Optional dedicated variable, on top of the generic $(ableton:selected_parameter_*) ones.
+				// The ID stays index-based (device_param_T_D_P) rather than derived from the parameter
+				// name, so it survives a rename in Live.
 				if (event.options.createVariable) {
-					// Sanitize name for variable ID (remove spaces, special chars)
-					// We use the full label but sanitized
-					// Actually, user asked for "variable with the name of the function and its value"
-					// Let's create a variable named based on the parameter name, e.g. "param_Track_Device_ParamName"
-					// But variable IDs should be simple. Let's stick to the ID based one for reliability: device_param_T_D_P
-					// And maybe a friendly named one? No, dynamic variable names are hard to manage.
-					// Let's use the standard ID we already support in main.js: device_param_T_D_P
-					// We just need to ensure it's "monitored" so main.js updates it.
-					
 					const varId = `device_param_${track}_${device}_${parameter}`
 					self.checkVariableDefinition(varId, paramName)
-					
-					// Add to monitored set so main.js updates it
+
+					// Membership in this set is what makes main.js push updates to the variable
 					self.monitoredDeviceParameters.add(varId)
 				}
-				
+
 				// Start listening
-				self.sendOsc('/live/device/start_listen/parameter/value', [
+				self.listenToDeviceParameter(track - 1, device - 1, parameter - 1)
+
+				// Ask for both representations explicitly rather than relying on the subscription
+				// echoing a value: the parameter may already be subscribed (device On/Off switches
+				// are subscribed at scan time, and re-selecting a parameter subscribes nothing new),
+				// in which case selecting it would send no OSC traffic at all and the variables
+				// would keep showing the previously selected parameter.
+				// Both are requested in parallel so neither display waits on the other's round trip.
+				self.sendOsc('/live/device/get/parameter/value', [
 					{ type: 'i', value: track - 1 },
 					{ type: 'i', value: device - 1 },
 					{ type: 'i', value: parameter - 1 }
 				])
-				
-				// Request initial string value
 				self.sendOsc('/live/device/get/parameter/value_string', [
 					{ type: 'i', value: track - 1 },
 					{ type: 'i', value: device - 1 },
 					{ type: 'i', value: parameter - 1 }
 				])
-				
+
+
 				self.checkFeedbacks('selected_parameter_active')
 			}
 		},
@@ -462,8 +427,7 @@ module.exports = function (self) {
 					type: 'textinput',
 					label: 'Step (e.g. 1, 5, -5) (Scale 0-100)',
 					id: 'step',
-					default: '1',
-					required: true
+					default: '1'
 				}
 			],
 			callback: async (event) => {
@@ -491,12 +455,9 @@ module.exports = function (self) {
 						{ type: 'f', value: newValue }
 					])
 				} else {
-					// If unknown, try to start listening again
-					self.sendOsc('/live/device/start_listen/parameter/value', [
-						{ type: 'i', value: track },
-						{ type: 'i', value: device },
-						{ type: 'i', value: parameter }
-					])
+					// Value not known yet: (re)subscribe so the next press has something to step from
+					self.listenToDeviceParameter(track, device, parameter, { force: true })
+					self.log('warn', `Parameter ${key} value unknown. Listening started. Try again.`)
 				}
 			}
 		},
@@ -507,8 +468,7 @@ module.exports = function (self) {
 					type: 'textinput',
 					label: 'Value (0-100)',
 					id: 'value',
-					default: '50',
-					required: true
+					default: '50'
 				}
 			],
 			callback: async (event) => {
@@ -539,7 +499,6 @@ module.exports = function (self) {
 					id: 'clipId',
 					choices: self.clipChoices,
 					default: self.clipChoices && self.clipChoices.length > 0 ? self.clipChoices[0].id : '1_1',
-					required: true,
 					minChoicesForSearch: 0
 				},
 				{
@@ -548,8 +507,7 @@ module.exports = function (self) {
 					id: 'duration',
 					min: 100,
 					max: 60000,
-					default: 3500,
-					required: true
+					default: 3500
 				}
 			],
 			callback: async (event) => {
@@ -559,20 +517,13 @@ module.exports = function (self) {
 				const duration = event.options.duration
 
 				const id = `clip_${track}_${clip}`
-				
-				if (!self.activeFades) self.activeFades = {}
 
-				// Check for existing fade to interrupt
+				// Interrupt any fade already running on this clip
 				const existingFade = self.activeFades[id]
-				let targetVolume = undefined
-
-				if (existingFade) {
-					if (existingFade.interval) {
-						clearInterval(existingFade.interval)
-					}
-					targetVolume = existingFade.startValue
+				if (existingFade && existingFade.interval) {
+					clearInterval(existingFade.interval)
 				}
-				
+
 				self.activeFades[id] = {
 					type: 'clip',
 					direction: 'out',
@@ -580,11 +531,10 @@ module.exports = function (self) {
 					clip,
 					duration,
 					startTime: Date.now(),
-					state: 'init',
-					targetVolume: targetVolume
+					state: 'init'
 				}
 
-				// Request current gain to start the process
+				// The fade only starts once Live answers with the current gain (see startFade)
 				self.sendOsc('/live/clip/get/gain', [
 					{ type: 'i', value: track },
 					{ type: 'i', value: clip }
@@ -600,7 +550,6 @@ module.exports = function (self) {
 					id: 'clipId',
 					choices: self.clipChoices,
 					default: self.clipChoices && self.clipChoices.length > 0 ? self.clipChoices[0].id : '1_1',
-					required: true,
 					minChoicesForSearch: 0
 				},
 				{
@@ -609,8 +558,7 @@ module.exports = function (self) {
 					id: 'duration',
 					min: 100,
 					max: 60000,
-					default: 3500,
-					required: true
+					default: 3500
 				}
 			],
 			callback: async (event) => {
@@ -620,20 +568,13 @@ module.exports = function (self) {
 				const duration = event.options.duration
 
 				const id = `clip_${track}_${clip}`
-				
-				if (!self.activeFades) self.activeFades = {}
 
-				// Check for existing fade to interrupt
+				// Interrupt any fade already running on this clip
 				const existingFade = self.activeFades[id]
-				let targetVolume = undefined
-
-				if (existingFade) {
-					if (existingFade.interval) {
-						clearInterval(existingFade.interval)
-					}
-					targetVolume = existingFade.startValue
+				if (existingFade && existingFade.interval) {
+					clearInterval(existingFade.interval)
 				}
-				
+
 				self.activeFades[id] = {
 					type: 'clip',
 					direction: 'in',
@@ -641,10 +582,10 @@ module.exports = function (self) {
 					clip,
 					duration,
 					startTime: Date.now(),
-					state: 'init',
-					targetVolume: targetVolume
+					state: 'init'
 				}
 
+				// The clip is fired by startFade, once Live answers with the current gain
 				self.sendOsc('/live/clip/get/gain', [
 					{ type: 'i', value: track },
 					{ type: 'i', value: clip }
@@ -659,8 +600,7 @@ module.exports = function (self) {
 					label: 'Track',
 					id: 'track',
 					choices: self.trackChoices,
-					default: self.trackChoices[0].id,
-					required: true
+					default: self.trackChoices[0].id
 				},
 				{
 					type: 'number',
@@ -668,8 +608,7 @@ module.exports = function (self) {
 					id: 'duration',
 					min: 100,
 					max: 60000,
-					default: 3500,
-					required: true
+					default: 3500
 				}
 			],
 			callback: async (event) => {
@@ -677,30 +616,23 @@ module.exports = function (self) {
 				const duration = event.options.duration
 
 				const id = `track_${track}`
-				
-				if (!self.activeFades) self.activeFades = {}
 
-				// Check for existing fade to interrupt
+				// Interrupt any fade already running on this track
 				const existingFade = self.activeFades[id]
-				let targetVolume = undefined
-
-				if (existingFade) {
-					if (existingFade.interval) {
-						clearInterval(existingFade.interval)
-					}
-					targetVolume = existingFade.startValue
+				if (existingFade && existingFade.interval) {
+					clearInterval(existingFade.interval)
 				}
-				
+
 				self.activeFades[id] = {
 					type: 'track',
 					direction: 'out',
 					track,
 					duration,
 					startTime: Date.now(),
-					state: 'init',
-					targetVolume: targetVolume
+					state: 'init'
 				}
 
+				// The fade only starts once Live answers with the current volume (see startFade)
 				self.sendOsc('/live/track/get/volume', [
 					{ type: 'i', value: track }
 				])
@@ -714,8 +646,7 @@ module.exports = function (self) {
 					label: 'Track',
 					id: 'track',
 					choices: self.trackChoices,
-					default: self.trackChoices[0].id,
-					required: true
+					default: self.trackChoices[0].id
 				},
 				{
 					type: 'number',
@@ -723,8 +654,7 @@ module.exports = function (self) {
 					id: 'duration',
 					min: 100,
 					max: 60000,
-					default: 3500,
-					required: true
+					default: 3500
 				}
 			],
 			callback: async (event) => {
@@ -732,30 +662,23 @@ module.exports = function (self) {
 				const duration = event.options.duration
 
 				const id = `track_${track}`
-				
-				if (!self.activeFades) self.activeFades = {}
 
-				// Check for existing fade to interrupt
+				// Interrupt any fade already running on this track
 				const existingFade = self.activeFades[id]
-				let targetVolume = undefined
-
-				if (existingFade) {
-					if (existingFade.interval) {
-						clearInterval(existingFade.interval)
-					}
-					targetVolume = existingFade.startValue
+				if (existingFade && existingFade.interval) {
+					clearInterval(existingFade.interval)
 				}
-				
+
 				self.activeFades[id] = {
 					type: 'track',
 					direction: 'in',
 					track,
 					duration,
 					startTime: Date.now(),
-					state: 'init',
-					targetVolume: targetVolume
+					state: 'init'
 				}
 
+				// The fade only starts once Live answers with the current volume (see startFade)
 				self.sendOsc('/live/track/get/volume', [
 					{ type: 'i', value: track }
 				])
@@ -776,8 +699,7 @@ module.exports = function (self) {
 					label: 'Track',
 					id: 'track',
 					choices: self.trackChoices,
-					default: self.trackChoices[0].id,
-					required: true
+					default: self.trackChoices[0].id
 				},
 				{
 					type: 'number',
@@ -785,8 +707,7 @@ module.exports = function (self) {
 					id: 'hold_time',
 					min: 0,
 					max: 60000,
-					default: 0,
-					required: true
+					default: 0
 				},
 				{
 					type: 'number',
@@ -794,8 +715,7 @@ module.exports = function (self) {
 					id: 'rise_time',
 					min: 100,
 					max: 60000,
-					default: 750,
-					required: true
+					default: 750
 				},
 				{
 					type: 'number',
@@ -803,8 +723,7 @@ module.exports = function (self) {
 					id: 'on_time',
 					min: 0,
 					max: 60000,
-					default: 500,
-					required: true
+					default: 500
 				},
 				{
 					type: 'number',
@@ -812,8 +731,7 @@ module.exports = function (self) {
 					id: 'fall_time',
 					min: 100,
 					max: 60000,
-					default: 3500,
-					required: true
+					default: 3500
 				},
 				{
 					type: 'number',
@@ -821,8 +739,7 @@ module.exports = function (self) {
 					id: 'on_level',
 					min: 0,
 					max: 100,
-					default: 85,
-					required: true
+					default: 85
 				},
 				{
 					type: 'number',
@@ -830,28 +747,21 @@ module.exports = function (self) {
 					id: 'off_level',
 					min: 0,
 					max: 100,
-					default: 0,
-					required: true
+					default: 0
 				}
 			],
 			callback: async (event) => {
 				const track = event.options.track - 1
-				
-				// Parse state - auto-wrap in $() if user forgot
-				let stateInput = event.options.state
-				if (stateInput && !stateInput.includes('$(') && stateInput.includes(':')) {
-					// User likely forgot $() wrapper, add it
-					stateInput = `$(${stateInput})`
-				}
-				
-				let state = await self.parseVariablesInString(stateInput)
+
+				// Companion resolves $(...) variables in this field before the callback runs
+				let state = event.options.state
 				if (typeof state === 'string') {
 					state = state.toLowerCase().trim()
 				}
-				
+
 				const isTrue = (state === 'true' || state === '1' || state === 'on')
-				
-				self.log('debug', `Fade by State: input="${stateInput}" parsed="${state}" isTrue=${isTrue}`)
+
+				self.log('debug', `Fade by State: input="${event.options.state}" parsed="${state}" isTrue=${isTrue}`)
 				
 				const riseTime = event.options.rise_time
 				const fallTime = event.options.fall_time
@@ -861,17 +771,16 @@ module.exports = function (self) {
 				const offLevel = event.options.off_level / 100  // Convert to 0-1 range
 
 				const id = `track_${track}`
-				
-				// Clear any pending delay (whether it was for In or Out)
-				if (self.trackDelays && self.trackDelays[id]) {
+
+				// A state change always supersedes a pending delay, whatever its direction:
+				// flipping back before Hold/On Time elapsed must not trigger the previous fade
+				if (self.trackDelays[id]) {
 					clearTimeout(self.trackDelays[id])
 					delete self.trackDelays[id]
 				}
 
 				if (isTrue) {
 					// FADE IN (Delayed by Hold Time)
-					if (!self.trackDelays) self.trackDelays = {}
-
 					if (holdTime > 0) {
 						self.trackDelays[id] = setTimeout(() => {
 							self.setupTrackToggleFade(track, 'in', riseTime, onLevel, offLevel)
@@ -882,8 +791,6 @@ module.exports = function (self) {
 					}
 				} else {
 					// FADE OUT (Delayed by On Time)
-					if (!self.trackDelays) self.trackDelays = {}
-					
 					if (onTime > 0) {
 						self.trackDelays[id] = setTimeout(() => {
 							self.setupTrackToggleFade(track, 'out', fallTime, onLevel, offLevel)
@@ -904,7 +811,6 @@ module.exports = function (self) {
 					id: 'clipId',
 					choices: self.clipChoices,
 					default: self.clipChoices && self.clipChoices.length > 0 ? self.clipChoices[0].id : '1_1',
-					required: true,
 					minChoicesForSearch: 0
 				}
 			],
@@ -947,7 +853,6 @@ module.exports = function (self) {
 					id: 'clipId',
 					choices: self.clipChoices,
 					default: self.clipChoices && self.clipChoices.length > 0 ? self.clipChoices[0].id : '1_1',
-					required: true,
 					minChoicesForSearch: 0
 				}
 			],
@@ -976,7 +881,6 @@ module.exports = function (self) {
 					id: 'clipId',
 					choices: self.clipChoices,
 					default: self.clipChoices && self.clipChoices.length > 0 ? self.clipChoices[0].id : '1_1',
-					required: true,
 					minChoicesForSearch: 0
 				}
 			],
@@ -1003,7 +907,6 @@ module.exports = function (self) {
 					id: 'clipId',
 					choices: self.clipChoices,
 					default: self.clipChoices && self.clipChoices.length > 0 ? self.clipChoices[0].id : '1_1',
-					required: true,
 					minChoicesForSearch: 0
 				}
 			],
@@ -1030,7 +933,6 @@ module.exports = function (self) {
 					id: 'clipId',
 					choices: self.clipChoices,
 					default: self.clipChoices && self.clipChoices.length > 0 ? self.clipChoices[0].id : '1_1',
-					required: true,
 					minChoicesForSearch: 0
 				}
 			],
@@ -1057,7 +959,6 @@ module.exports = function (self) {
 					id: 'clipId',
 					choices: self.clipChoices,
 					default: self.clipChoices && self.clipChoices.length > 0 ? self.clipChoices[0].id : '1_1',
-					required: true,
 					minChoicesForSearch: 0
 				},
 				{
@@ -1065,7 +966,6 @@ module.exports = function (self) {
 					label: 'Beat Position',
 					id: 'position',
 					default: '0',
-					required: true,
 					tooltip: 'Position in beats (e.g., 4.0 for beat 4)'
 				}
 			],
@@ -1092,7 +992,6 @@ module.exports = function (self) {
 					id: 'clipId',
 					choices: self.clipChoices,
 					default: self.clipChoices && self.clipChoices.length > 0 ? self.clipChoices[0].id : '1_1',
-					required: true,
 					minChoicesForSearch: 0
 				},
 				{
@@ -1100,7 +999,6 @@ module.exports = function (self) {
 					label: 'Beat Position',
 					id: 'position',
 					default: '16',
-					required: true,
 					tooltip: 'Position in beats (e.g., 16.0 for beat 16)'
 				}
 			],
@@ -1130,7 +1028,6 @@ module.exports = function (self) {
 					id: 'clipId',
 					choices: self.clipChoices,
 					default: self.clipChoices && self.clipChoices.length > 0 ? self.clipChoices[0].id : '1_1',
-					required: true,
 					minChoicesForSearch: 0
 				},
 				{
@@ -1180,7 +1077,6 @@ module.exports = function (self) {
 					id: 'clipId',
 					choices: self.clipChoices,
 					default: self.clipChoices && self.clipChoices.length > 0 ? self.clipChoices[0].id : '1_1',
-					required: true,
 					minChoicesForSearch: 0
 				},
 				{
@@ -1227,7 +1123,6 @@ module.exports = function (self) {
 					id: 'clipId',
 					choices: self.clipChoices,
 					default: self.clipChoices && self.clipChoices.length > 0 ? self.clipChoices[0].id : '1_1',
-					required: true,
 					minChoicesForSearch: 0
 				}
 			],
@@ -1272,7 +1167,6 @@ module.exports = function (self) {
 					label: 'OSC Address',
 					id: 'address',
 					default: '/live/song/get/tempo',
-					required: true,
 					tooltip: 'The OSC address path (e.g., /live/song/set/tempo)'
 				},
 				{
@@ -1280,7 +1174,6 @@ module.exports = function (self) {
 					label: 'Arguments (comma-separated)',
 					id: 'args',
 					default: '',
-					required: false,
 					tooltip: 'Comma-separated arguments. Prefix with type: i:123 (int), f:1.5 (float), s:text (string). Without prefix, auto-detected.'
 				}
 			],

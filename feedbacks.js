@@ -1,5 +1,4 @@
 const { combineRgb } = require('@companion-module/base')
-const { getMeterPng } = require('./meter')
 
 // ============================================================
 // FEEDBACK DEFINITIONS
@@ -16,6 +15,9 @@ module.exports = async function (self) {
 			type: 'advanced',
 			name: 'Clip Color',
 			description: 'Change button color to match Ableton Clip Color',
+			// The callback only ever returns a bgcolor: telling Companion narrows the style
+			// override list users see when placing this feedback on a layered button
+			affectedProperties: ['bgcolor'],
 			options: [
 				{
 					type: 'dropdown',
@@ -23,7 +25,6 @@ module.exports = async function (self) {
 					id: 'clipId',
 					choices: self.clipChoices,
 					default: self.clipChoices && self.clipChoices.length > 0 ? self.clipChoices[0].id : '1_1',
-					required: true,
 					minChoicesForSearch: 0
 				}
 			],
@@ -55,7 +56,6 @@ module.exports = async function (self) {
 					id: 'clipId',
 					choices: self.clipChoices,
 					default: self.clipChoices && self.clipChoices.length > 0 ? self.clipChoices[0].id : '1_1',
-					required: true,
 					minChoicesForSearch: 0
 				}
 			],
@@ -82,7 +82,6 @@ module.exports = async function (self) {
 					id: 'clipId',
 					choices: self.clipChoices,
 					default: self.clipChoices && self.clipChoices.length > 0 ? self.clipChoices[0].id : '1_1',
-					required: true,
 					minChoicesForSearch: 0
 				}
 			],
@@ -109,7 +108,6 @@ module.exports = async function (self) {
 					id: 'clipId',
 					choices: self.clipChoices,
 					default: self.clipChoices && self.clipChoices.length > 0 ? self.clipChoices[0].id : '1_1',
-					required: true,
 					minChoicesForSearch: 0
 				}
 			],
@@ -139,13 +137,14 @@ module.exports = async function (self) {
 					label: 'Track',
 					id: 'track',
 					choices: self.trackChoices,
-					default: self.trackChoices[0].id,
-					required: true
+					default: self.trackChoices[0].id
 				},
 				{
 					type: 'number',
 					label: 'Threshold (0.0 - 1.0)',
 					id: 'threshold',
+					min: 0,
+					max: 1,
 					default: 0.8,
 					step: 0.01
 				}
@@ -170,54 +169,12 @@ module.exports = async function (self) {
 					label: 'Track',
 					id: 'track',
 					choices: self.trackChoices,
-					default: self.trackChoices[0].id,
-					required: true
+					default: self.trackChoices[0].id
 				}
 			],
 			callback: (feedback) => {
 				const track = feedback.options.track
 				return self.trackMutes[track] === true || self.trackMutes[track] === 1
-			}
-		},
-
-		track_meter_visual: {
-			type: 'advanced',
-			name: 'Track Meter Visual',
-			description: 'Show a visual meter bar on the button',
-			options: [
-				{
-					type: 'dropdown',
-					label: 'Track',
-					id: 'track',
-					choices: self.trackChoices,
-					default: self.trackChoices[0].id,
-					required: true
-				},
-				{
-					type: 'dropdown',
-					label: 'Position',
-					id: 'position',
-					default: 'stereoRight',
-					choices: [
-						{ id: 'stereoRight', label: 'Right Bar (Stereo)' },
-						{ id: 'stereoLeft', label: 'Left Bar (Stereo)' },
-						{ id: 'full', label: 'Full Button (Stereo)' }
-					]
-				}
-			],
-			callback: async (feedback) => {
-				const track = feedback.options.track
-				const position = feedback.options.position || 'stereoRight'
-				
-				const levelL = self.trackLevelsLeft[track] || 0
-				const levelR = self.trackLevelsRight[track] || 0
-				
-				const pngBuffer = await getMeterPng(levelL, levelR, position)
-				
-				if (pngBuffer) {
-					return { png64: pngBuffer.toString('base64') }
-				}
-				return {}
 			}
 		},
 
@@ -244,9 +201,17 @@ module.exports = async function (self) {
 				}
 			],
 			callback: (feedback) => {
-				if (!feedback.options.parameterId || feedback.options.parameterId === '0_0_0') return false
-				const value = self.deviceParameters[feedback.options.parameterId]
-				return value > 0.5
+				const paramId = feedback.options.parameterId
+				if (!paramId || paramId === '0_0_0') return false
+
+				// API 2.x dropped the `subscribe` callback on feedbacks, so the subscription is set
+				// up here instead. Called without `force`, listenToDeviceParameter is idempotent,
+				// which matters: this runs on every evaluation, not just when the feedback is placed.
+				// Choices are 1-based ("T_D_P"), AbletonOSC expects 0-based indexes.
+				const [track, device, parameter] = paramId.split('_').map((n) => Number(n) - 1)
+				self.listenToDeviceParameter(track, device, parameter)
+
+				return self.deviceParameters[paramId] > 0.5
 			}
 		},
 

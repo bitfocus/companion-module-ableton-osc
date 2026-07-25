@@ -1,4 +1,4 @@
-const { InstanceBase, Regex, runEntrypoint, InstanceStatus } = require('@companion-module/base')
+const { InstanceBase, Regex, InstanceStatus } = require('@companion-module/base')
 const osc = require('osc')
 const UpdateActions = require('./actions')
 const UpdateFeedbacks = require('./feedbacks')
@@ -23,28 +23,32 @@ class AbletonOSCInstance extends InstanceBase {
 		this.deviceNames = {}
 		this.clipPlaying = {}
 		this.trackDelays = {}
-		this.sceneNames = {}
 		this.clipNames = {}
 		this.clipSlotHasClip = {}
 		
 		// Configuration
-		this.variableDefinitions = []
+		this.variableDefinitions = {}
 		this.numTracks = 8
 		this.numScenes = 8
 		this.knownParameters = []
 		
 		// Runtime state
+		// Delay (ms) between stopping a clip/track at the end of a fade-out and restoring its
+		// volume/gain to the original value, so Live has time to actually stop playback before
+		// the fader jumps back up (avoids an audible "pop")
+		this.fadeStopRestoreDelay = 80
 		this.activeFades = {}
 		this.blinkState = false
 		this.variableIds = new Set()
 		this.activeParameterListeners = new Set()
 		this.monitoredDeviceParameters = new Set()
 		this.selectedParameter = null
-		this.pendingClipInfoRequests = new Set()
 		this.lastPresetsHash = ''
 		this.isScanning = false
 		
 		// Timers and throttling
+		this.blinkInterval = null
+		this.fetchTimeout = null
 		this.updateDebounceTimer = null
 		this.lastMeterUpdate = 0
 		this.meterUpdateInterval = 50
@@ -117,14 +121,28 @@ class AbletonOSCInstance extends InstanceBase {
 		}
 
 		if (this.oscPort) {
+			// Release every subscription so Live stops streaming to a port nobody listens on.
+			// Best effort only: the socket may already be gone, which must not block teardown.
 			try {
 				for (let t = 0; t < this.numTracks; t++) {
 					this.sendOsc('/live/track/stop_listen/output_meter_left', [{ type: 'i', value: t }])
 					this.sendOsc('/live/track/stop_listen/output_meter_right', [{ type: 'i', value: t }])
+					this.sendOsc('/live/track/stop_listen/volume', [{ type: 'i', value: t }])
 					this.sendOsc('/live/track/stop_listen/mute', [{ type: 'i', value: t }])
 					this.sendOsc('/live/track/stop_listen/playing_slot_index', [{ type: 'i', value: t }])
 				}
+
+				for (const key of this.activeParameterListeners) {
+					const [track, device, parameter] = key.split('_').map(Number)
+					this.sendOsc('/live/device/stop_listen/parameter/value', [
+						{ type: 'i', value: track },
+						{ type: 'i', value: device },
+						{ type: 'i', value: parameter }
+					])
+				}
 			} catch (e) {}
+
+			this.activeParameterListeners.clear()
 
 			this.oscPort.close()
 			delete this.oscPort
@@ -188,7 +206,8 @@ class AbletonOSCInstance extends InstanceBase {
 				this.updateStatus(InstanceStatus.Ok)
 				this.log('info', 'OSC Ready')
 				
-				// Re-send subscriptions if any
+				// The port was re-created (config change or reconnect): Live no longer knows where
+				// to push values, so replay every device parameter subscription
 				for (const key of this.activeParameterListeners) {
 					const [track, device, parameter] = key.split('_').map(Number)
 					this.sendOsc('/live/device/start_listen/parameter/value', [
@@ -219,20 +238,26 @@ class AbletonOSCInstance extends InstanceBase {
 	// ============================================================
 
 	/**
-	 * Cancel an active fade out on a track and restore volume
-	 * Called when a clip is fired during a fade out
+	 * Cancel a fade out running on a track and restore its volume.
+	 * Called when a clip is fired on that track, either from an action or because Live reported
+	 * a new playing slot: without this the new clip would inherit the fading-out volume.
+	 *
+	 * "Fade by State" fades (subtype 'toggle') are excluded: they are driven by an external
+	 * variable, which stays the authority on the track level.
+	 *
+	 * @param {number} trackIndex - Track index (0-based)
+	 * @returns {boolean} true if a fade was actually cancelled
 	 */
 	cancelFadeOutOnTrack(trackIndex) {
 		const fadeId = `track_${trackIndex}`
-		const activeFade = this.activeFades && this.activeFades[fadeId]
-		
+		const activeFade = this.activeFades[fadeId]
+
 		if (activeFade && activeFade.direction === 'out' && activeFade.subtype !== 'toggle') {
-			// Cancel the fade out and restore volume
 			if (activeFade.interval) {
 				clearInterval(activeFade.interval)
 			}
-			
-			// Restore to original volume
+
+			// Back to the level the fade started from
 			this.sendOsc('/live/track/set/volume', [
 				{ type: 'i', value: trackIndex },
 				{ type: 'f', value: activeFade.fromVolume }
@@ -246,7 +271,9 @@ class AbletonOSCInstance extends InstanceBase {
 	}
 
 	/**
-	 * Setup a toggle fade (Fade by State)
+	 * Arm a toggle fade (Fade by State). The fade itself only starts once Live answers with the
+	 * track's current volume, which lets startFade() pick up mid-way when interrupting.
+	 *
 	 * @param {number} track - Track index (0-based)
 	 * @param {string} direction - 'in' or 'out'
 	 * @param {number} duration - Fade duration in ms
@@ -255,8 +282,6 @@ class AbletonOSCInstance extends InstanceBase {
 	 */
 	setupTrackToggleFade(track, direction, duration, onLevel, offLevel) {
 		const id = `track_${track}`
-		
-		if (!this.activeFades) this.activeFades = {}
 
 		const existingFade = this.activeFades[id]
 		if (existingFade && existingFade.interval) {
@@ -271,7 +296,6 @@ class AbletonOSCInstance extends InstanceBase {
 			duration,
 			startTime: Date.now(),
 			state: 'init',
-			stopClips: false,
 			onLevel: onLevel,
 			offLevel: offLevel
 		}
@@ -282,15 +306,17 @@ class AbletonOSCInstance extends InstanceBase {
 	}
 
 	/**
-	 * Start the actual fade animation after receiving current volume from OSC
+	 * Run the fade animation, once Live has answered with the current volume/gain.
+	 *
+	 * @param {string} id - Fade key, `track_<i>` or `clip_<t>_<c>`
+	 * @param {number} startValue - Current volume/gain reported by Live (0-1)
 	 */
 	startFade(id, startValue) {
 		const fade = this.activeFades[id]
 		if (!fade) return
 
 		fade.state = 'fading'
-		fade.currentValue = startValue
-		
+
 		let fromVolume, toVolume
 		
 		if (fade.subtype === 'toggle') {
@@ -332,7 +358,8 @@ class AbletonOSCInstance extends InstanceBase {
 		fade.fromVolume = fromVolume
 		fade.toVolume = toVolume
 		
-		// For standard fade in, set to 0 and fire/start
+		// A standard fade in must start from silence, so drop the level before the clip is fired
+		// (firing first would let the first frames through at full level)
 		if (fade.direction === 'in' && fade.subtype !== 'toggle') {
 			if (fade.type === 'clip') {
 				this.sendOsc('/live/clip/set/gain', [
@@ -362,22 +389,22 @@ class AbletonOSCInstance extends InstanceBase {
 			const elapsed = now - fade.startTime
 			const progress = Math.min(elapsed / fade.duration, 1.0)
 			
-			// Calculate new value using easing
 			let newValue
-			
+
 			if (fade.subtype === 'toggle') {
-				// Linear interpolation with easing for toggle fades
+				// Interpolate between the explicit On/Off levels with a quadratic easing
 				let easedProgress
 				if (fade.direction === 'out') {
-					// Ease-In: starts slow, speeds up
+					// Ease-In: holds the level, then drops - keeps speech intelligible longer
 					easedProgress = progress * progress
 				} else {
-					// Ease-Out: starts fast, slows down
+					// Ease-Out: opens quickly, then settles
 					easedProgress = 1 - (1 - progress) * (1 - progress)
 				}
 				newValue = fade.fromVolume + (fade.toVolume - fade.fromVolume) * easedProgress
 			} else {
-				// Legacy behavior for clip fades
+				// Standard fades run between the current level and silence, quadratic ease-out
+				// in both directions
 				if (fade.direction === 'out') {
 					const remaining = 1.0 - progress
 					newValue = fade.fromVolume * (remaining * remaining)
@@ -386,10 +413,7 @@ class AbletonOSCInstance extends InstanceBase {
 					newValue = fade.toVolume * (1.0 - p * p)
 				}
 			}
-			
-			// Update current value for potential interruption
-			fade.currentValue = newValue
-			
+
 			if (progress >= 1.0) {
 				// Finished
 				clearInterval(fade.interval)
@@ -400,12 +424,16 @@ class AbletonOSCInstance extends InstanceBase {
 							{ type: 'i', value: fade.track },
 							{ type: 'i', value: fade.clip }
 						])
-						// Restore gain for clips
-						this.sendOsc('/live/clip/set/gain', [
-							{ type: 'i', value: fade.track },
-							{ type: 'i', value: fade.clip },
-							{ type: 'f', value: fade.fromVolume }
-						])
+						// Restore gain for clips, slightly delayed so Live has time to actually
+						// stop the clip first - otherwise the gain jumps back up before playback
+						// stops and produces an audible "pop"
+						setTimeout(() => {
+							this.sendOsc('/live/clip/set/gain', [
+								{ type: 'i', value: fade.track },
+								{ type: 'i', value: fade.clip },
+								{ type: 'f', value: fade.fromVolume }
+							])
+						}, this.fadeStopRestoreDelay)
 					} else {
 						this.sendOsc('/live/clip/set/gain', [
 							{ type: 'i', value: fade.track },
@@ -427,11 +455,15 @@ class AbletonOSCInstance extends InstanceBase {
 							this.sendOsc('/live/track/stop_all_clips', [
 								{ type: 'i', value: fade.track }
 							])
-							// Then restore volume to original value
-							this.sendOsc('/live/track/set/volume', [
-								{ type: 'i', value: fade.track },
-								{ type: 'f', value: fade.fromVolume }
-							])
+							// Restore volume slightly delayed so the clips actually stop before
+							// the fader jumps back up - otherwise the volume rises before playback
+							// stops and produces an audible "pop"
+							setTimeout(() => {
+								this.sendOsc('/live/track/set/volume', [
+									{ type: 'i', value: fade.track },
+									{ type: 'f', value: fade.fromVolume }
+								])
+							}, this.fadeStopRestoreDelay)
 						} else {
 							// Fade in: ensure we hit target exactly
 							this.sendOsc('/live/track/set/volume', [
@@ -491,7 +523,10 @@ class AbletonOSCInstance extends InstanceBase {
 			// args: [track, volume]
 			const track = args[0].value
 			const volume = args[1].value
-			
+
+			// Keep the volume gauge variable current (this also fires continuously via start_listen)
+			this.setVariableValues({ [`track_volume_${track + 1}`]: volume.toFixed(3) })
+
 			const id = `track_${track}`
 			if (this.activeFades[id] && this.activeFades[id].state === 'init') {
 				this.startFade(id, volume)
@@ -504,8 +539,8 @@ class AbletonOSCInstance extends InstanceBase {
 			const name = args[2].value
 			
 			const varId = `clip_name_${track}_${clip}`
-			
-			// Optionally add to definitions if not exists (simplified here)
+
+			// Clips beyond the 8x8 default grid have no definition yet, create it on the fly
 			this.checkVariableDefinition(varId, `Clip Name ${track}-${clip}`)
 			this.setVariableValues({ [varId]: name })
 			
@@ -529,23 +564,17 @@ class AbletonOSCInstance extends InstanceBase {
 			const track = trackIndex + 1      // 1-based for display
 			const playingClipIndex = args[1].value // 0-based index of playing clip, or -1 if none
 			
-			// Check if a clip started playing and we have an active fade out on this track
+			// A clip starting playback cancels any fade out still running on this track
 			if (playingClipIndex >= 0) {
 				this.cancelFadeOutOnTrack(trackIndex)
 			}
-			
-			// Update all clips for this track
-			// We iterate through known scenes (or up to numScenes)
+
+			// A single message describes the whole track: at most one slot plays at a time,
+			// so refresh the playing state of every scene on that track
 			for (let s = 1; s <= this.numScenes; s++) {
-				const isPlaying = (s - 1) === playingClipIndex
-				const clipId = `${track}_${s}`
-				
-				// Only update if changed to avoid flooding
-				if (this.clipPlaying[clipId] !== isPlaying) {
-					this.clipPlaying[clipId] = isPlaying
-				}
+				this.clipPlaying[`${track}_${s}`] = (s - 1) === playingClipIndex
 			}
-			
+
 			this.checkFeedbacks('clip_playing')
 
 		} else if (address === '/live/track/get/name') {
@@ -562,11 +591,9 @@ class AbletonOSCInstance extends InstanceBase {
 			const track = args[0].value
 			const clip = args[1].value
 			const hasClip = args[2].value === 1 || args[2].value === true
-			
-			const key = `${track + 1}_${clip + 1}`
-			this.clipSlotHasClip[key] = hasClip
-			this.pendingClipInfoRequests.delete(key)
-			
+
+			this.clipSlotHasClip[`${track + 1}_${clip + 1}`] = hasClip
+
 			// Only request clip info if there's actually a clip
 			if (hasClip) {
 				this.sendOsc('/live/clip/get/name', [
@@ -579,17 +606,8 @@ class AbletonOSCInstance extends InstanceBase {
 				])
 			}
 
-		} else if (address === '/live/scene/get/name') {
-			// args: [scene, name]
-			const scene = args[0].value + 1
-			const name = args[1].value
-			
-			this.sceneNames[scene] = name
-			
-			// Update actions to refresh scene choices (debounced)
-
 		// ============================================================
-		// CLIP LOOP, MARKER, WARPING, LAUNCH MODE HANDLERS
+		// CLIP LOOP, MARKER & WARPING HANDLERS
 		// ============================================================
 		} else if (address === '/live/clip/get/playing_position') {
 			// args: [track, clip, position]
@@ -740,9 +758,11 @@ class AbletonOSCInstance extends InstanceBase {
 		} else if (address === '/live/track/get/mute') {
 			// args: [track, mute]
 			const track = args[0].value + 1
-			const mute = args[1].value
-			
+			// Live sends either an int (0/1) or a bool depending on the message source
+			const mute = args[1].value === 1 || args[1].value === true
+
 			this.trackMutes[track] = mute
+			this.setVariableValues({ [`track_mute_${track}`]: mute ? 1 : 0 })
 			this.checkFeedbacks('track_mute')
 
 		} else if (address === '/live/device/get/parameter/value') {
@@ -755,21 +775,20 @@ class AbletonOSCInstance extends InstanceBase {
 			this.deviceParameters[`${track}_${device}_${param}`] = value
 			this.checkFeedbacks('device_active')
 
-			// Update selected parameter state for toggle logic
-			if (this.selectedParameter && 
-				this.selectedParameter.track === track && 
-				this.selectedParameter.device === device && 
-				this.selectedParameter.parameter === param) {
-				this.selectedParameter.lastValue = value
-			}
-
-			// Request value_string to ensure we get the display value
-			const varId = `device_param_${track}_${device}_${param}`
-			const isSelected = this.selectedParameter && 
-				this.selectedParameter.track === track && 
-				this.selectedParameter.device === device && 
+			const isSelected = this.selectedParameter !== null &&
+				this.selectedParameter.track === track &&
+				this.selectedParameter.device === device &&
 				this.selectedParameter.parameter === param
 
+			// Keep the selected parameter state current, the Toggle action relies on it
+			if (isSelected) {
+				this.selectedParameter.lastValue = value
+				// Raw value is 0-1 normalized; expose as 0-100 for the ring gauge
+				this.setVariableValues({ selected_parameter_value_percent: (value * 100).toFixed(1) })
+			}
+
+			// The numeric value carries no unit: ask for the display string Live shows in its UI
+			const varId = `device_param_${track}_${device}_${param}`
 			if (this.monitoredDeviceParameters.has(varId) || isSelected) {
 				this.sendOsc('/live/device/get/parameter/value_string', [
 					{ type: 'i', value: track - 1 },
@@ -811,17 +830,21 @@ class AbletonOSCInstance extends InstanceBase {
 			const left = this.trackLevelsLeft[track] || 0
 			const right = this.trackLevelsRight[track] || 0
 			const maxLevel = Math.max(left, right)
-			
+
 			this.trackLevels[track] = maxLevel
-			
+
 			const varId = `track_meter_${track}`
-			this.setVariableValues({ [varId]: maxLevel.toFixed(2) })
-			
+			this.setVariableValues({
+				[varId]: maxLevel.toFixed(2),
+				[`track_meter_left_${track}`]: left.toFixed(2),
+				[`track_meter_right_${track}`]: right.toFixed(2)
+			})
+
 			// Throttle feedback updates to reduce CPU load
 			const now = Date.now()
 			if (now - this.lastMeterUpdate >= this.meterUpdateInterval) {
 				this.lastMeterUpdate = now
-				this.checkFeedbacks('track_meter', 'track_meter_visual')
+				this.checkFeedbacks('track_meter')
 			}
 
 		} else if (address === '/live/song/get/num_tracks') {
@@ -847,13 +870,10 @@ class AbletonOSCInstance extends InstanceBase {
 			// Schedule UI update (batched) instead of immediate initPresets
 			this.scheduleUiUpdate()
 
-			// Start listening to device parameter 0 (Device On/Off) for each device found
+			// Parameter 0 is the Device On/Off switch: listen to it right away so the
+			// "Device (Plugin) Active" feedback lights up without any further user action
 			for (let i = 0; i < names.length; i++) {
-				this.sendOsc('/live/device/start_listen/parameter/value', [
-					{ type: 'i', value: track - 1 },
-					{ type: 'i', value: i },
-					{ type: 'i', value: 0 } // Parameter 0 is usually Device On/Off
-				])
+				this.listenToDeviceParameter(track - 1, i, 0)
 			}
 
 			// Fetch parameters for these devices
@@ -984,6 +1004,12 @@ class AbletonOSCInstance extends InstanceBase {
 				])
 				msgCount += 2
 
+				// Start listening to volume (for the volume gauge)
+				this.sendOsc('/live/track/start_listen/volume', [
+					{ type: 'i', value: t }
+				])
+				msgCount++
+
 				// Start listening to playing slot (much more efficient than listening to each clip)
 				this.sendOsc('/live/track/start_listen/playing_slot_index', [
 					{ type: 'i', value: t }
@@ -999,14 +1025,15 @@ class AbletonOSCInstance extends InstanceBase {
 				// Note: Device parameter listeners are set up when we receive the devices/name response
 				// This avoids "Index out of range" errors from requesting non-existent devices
 
-				// Ensure variable definition exists
-				const varId = `track_meter_${t + 1}`
-				this.checkVariableDefinition(varId, `Track Meter ${t + 1}`)
+				// Ensure variable definitions exist
+				this.checkVariableDefinition(`track_meter_${t + 1}`, `Track Meter ${t + 1}`)
+				this.checkVariableDefinition(`track_meter_left_${t + 1}`, `Track Meter Left ${t + 1}`)
+				this.checkVariableDefinition(`track_meter_right_${t + 1}`, `Track Meter Right ${t + 1}`)
+				this.checkVariableDefinition(`track_volume_${t + 1}`, `Track Volume ${t + 1}`)
+				this.checkVariableDefinition(`track_mute_${t + 1}`, `Track Mute ${t + 1}`)
 
 				for (let s = 0; s < sCount; s++) {
-					// First check if slot has a clip (response will trigger name/color fetch)
-					const key = `${t + 1}_${s + 1}`
-					this.pendingClipInfoRequests.add(key)
+					// First check if the slot holds a clip (the response triggers the name/color fetch)
 					this.sendOsc('/live/clip_slot/get/has_clip', [
 						{ type: 'i', value: t },
 						{ type: 'i', value: s }
@@ -1018,14 +1045,6 @@ class AbletonOSCInstance extends InstanceBase {
 						msgCount = 0
 					}
 				}
-			}
-
-			// Fetch Scene Names
-			for (let s = 0; s < sCount; s++) {
-				this.sendOsc('/live/scene/get/name', [
-					{ type: 'i', value: s }
-				])
-				msgCount++
 			}
 		}, 200)
 	}
@@ -1041,7 +1060,7 @@ class AbletonOSCInstance extends InstanceBase {
 	checkVariableDefinition(id, name) {
 		if (!this.variableIds.has(id)) {
 			this.variableIds.add(id)
-			this.variableDefinitions.push({ variableId: id, name: name })
+			this.variableDefinitions[id] = { name: name }
 			this.variableDefinitionsDirty = true
 			
 			if (!this.variableDefinitionsTimer) {
@@ -1068,21 +1087,15 @@ class AbletonOSCInstance extends InstanceBase {
 			this.trackChoices.push({ id: i, label: `${i}: ${name}` })
 		}
 
-		// Generate Scene Choices
-		this.sceneChoices = []
-		for (let i = 1; i <= this.numScenes; i++) {
-			const name = this.sceneNames[i] || `Scene ${i}`
-			this.sceneChoices.push({ id: i, label: `${i}: ${name}` })
-		}
-
 		// Generate Clip Choices
+		// A slot is identified by track and scene (the Session View row it sits on). Empty slots
+		// are listed too, so that a button can target a slot that will be filled later.
 		this.clipChoices = []
 		for (let t = 1; t <= this.numTracks; t++) {
 			const trackName = this.getVariableValue(`track_name_${t}`) || `Track ${t}`
 			for (let s = 1; s <= this.numScenes; s++) {
-				const clipName = this.clipNames[`${t}_${s}`]
-				const label = clipName ? `${trackName} - ${clipName}` : `${trackName} - Scene ${s}`
-				this.clipChoices.push({ id: `${t}_${s}`, label: label })
+				const slotName = this.clipNames[`${t}_${s}`] || `Scene ${s}`
+				this.clipChoices.push({ id: `${t}_${s}`, label: `${trackName} - ${slotName}` })
 			}
 		}
 
@@ -1102,7 +1115,6 @@ class AbletonOSCInstance extends InstanceBase {
 		
 		// Fallback if empty
 		if (this.trackChoices.length === 0) this.trackChoices.push({ id: 1, label: 'Track 1' })
-		if (this.sceneChoices.length === 0) this.sceneChoices.push({ id: 1, label: 'Scene 1' })
 		if (this.deviceChoices.length === 0) this.deviceChoices.push({ id: '1_1', label: 'T1 > D1' })
 
 		UpdateActions(this)
@@ -1121,34 +1133,40 @@ class AbletonOSCInstance extends InstanceBase {
 	}
 
 	// ============================================================
-	// FEEDBACK SUBSCRIPTIONS
+	// DEVICE PARAMETER SUBSCRIPTIONS
 	// ============================================================
 
-	subscribe(feedback) {
-		if (feedback.type === 'device_active') {
-			const track = (feedback.options.track || 1) - 1
-			const device = (feedback.options.device || 1) - 1
-			const parameter = (feedback.options.parameter || 1) - 1
-			
-			const key = `${track}_${device}_${parameter}`
-			this.log('debug', `Subscribing to device parameter: ${key}`)
+	/**
+	 * Subscribe to a device parameter so Live pushes its value on every change.
+	 * Indexes are 0-based, as expected by AbletonOSC.
+	 *
+	 * Subscriptions are never released: several feedbacks and actions can watch the same
+	 * parameter, so unsubscribing would need reference counting for a negligible gain.
+	 * They are replayed on reconnect (see initOsc) and dropped when the instance is destroyed.
+	 *
+	 * By default an already-known subscription is not re-sent, because feedback callbacks call
+	 * this on every evaluation. Pass `force` from button presses instead: AbletonOSC replaces a
+	 * duplicate listener rather than stacking one, and answers with the current value, so a
+	 * re-send costs nothing and recovers from a subscription Live silently lost (another set
+	 * loaded, Live restarted) - which our bookkeeping alone cannot detect.
+	 *
+	 * @param {number} track - Track index (0-based)
+	 * @param {number} device - Device index (0-based)
+	 * @param {number} parameter - Parameter index (0-based)
+	 * @param {{ force?: boolean }} [options]
+	 */
+	listenToDeviceParameter(track, device, parameter, { force = false } = {}) {
+		const key = `${track}_${device}_${parameter}`
+		if (this.activeParameterListeners.has(key) && !force) return
 
-			if (!this.activeParameterListeners.has(key)) {
-				this.activeParameterListeners.add(key)
-				
-				if (this.oscPort) {
-					this.sendOsc('/live/device/start_listen/parameter/value', [
-						{ type: 'i', value: track },
-						{ type: 'i', value: device },
-						{ type: 'i', value: parameter }
-					])
-				}
-			}
-		}
-	}
+		this.activeParameterListeners.add(key)
+		this.log('debug', `Subscribing to device parameter: ${key}`)
 
-	unsubscribe(feedback) {
-		// Optional: implement reference counting to stop listening
+		this.sendOsc('/live/device/start_listen/parameter/value', [
+			{ type: 'i', value: track },
+			{ type: 'i', value: device },
+			{ type: 'i', value: parameter }
+		])
 	}
 
 	// ============================================================
@@ -1203,4 +1221,4 @@ class AbletonOSCInstance extends InstanceBase {
 	}
 }
 
-runEntrypoint(AbletonOSCInstance, [])
+module.exports = AbletonOSCInstance
