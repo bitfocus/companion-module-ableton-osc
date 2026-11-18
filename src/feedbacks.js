@@ -6,7 +6,6 @@ import { combineRgb } from '@companion-module/base'
 
 export async function UpdateFeedbacks(self) {
 	self.setFeedbackDefinitions({
-
 		// ============================================================
 		// CLIP FEEDBACKS
 		// ============================================================
@@ -25,20 +24,20 @@ export async function UpdateFeedbacks(self) {
 					id: 'clipId',
 					choices: self.clipChoices,
 					default: self.clipChoices && self.clipChoices.length > 0 ? self.clipChoices[0].id : '1_1',
-					minChoicesForSearch: 0
-				}
+					minChoicesForSearch: 0,
+				},
 			],
 			callback: (feedback) => {
 				const [trackStr, clipStr] = feedback.options.clipId.split('_')
 				const track = parseInt(trackStr)
 				const clip = parseInt(clipStr)
 				const color = self.clipColors[`${track}_${clip}`]
-				
+
 				if (color !== undefined) {
 					return { bgcolor: color }
 				}
 				return {}
-			}
+			},
 		},
 
 		clip_playing: {
@@ -47,7 +46,7 @@ export async function UpdateFeedbacks(self) {
 			description: 'Blinks when clip is playing',
 			defaultStyle: {
 				bgcolor: combineRgb(0, 0, 0),
-				color: combineRgb(255, 255, 255)
+				color: combineRgb(255, 255, 255),
 			},
 			options: [
 				{
@@ -56,8 +55,8 @@ export async function UpdateFeedbacks(self) {
 					id: 'clipId',
 					choices: self.clipChoices,
 					default: self.clipChoices && self.clipChoices.length > 0 ? self.clipChoices[0].id : '1_1',
-					minChoicesForSearch: 0
-				}
+					minChoicesForSearch: 0,
+				},
 			],
 			callback: (feedback) => {
 				const [trackStr, clipStr] = feedback.options.clipId.split('_')
@@ -65,7 +64,7 @@ export async function UpdateFeedbacks(self) {
 				const clip = parseInt(clipStr)
 				const isPlaying = self.clipPlaying[`${track}_${clip}`] === true || self.clipPlaying[`${track}_${clip}`] === 1
 				return isPlaying && self.blinkState
-			}
+			},
 		},
 
 		clip_warping: {
@@ -73,7 +72,7 @@ export async function UpdateFeedbacks(self) {
 			name: 'Clip Warping',
 			description: 'Change color when clip warping is enabled',
 			defaultStyle: {
-				bgcolor: combineRgb(255, 173, 86)
+				bgcolor: combineRgb(255, 173, 86),
 			},
 			options: [
 				{
@@ -82,8 +81,8 @@ export async function UpdateFeedbacks(self) {
 					id: 'clipId',
 					choices: self.clipChoices,
 					default: self.clipChoices && self.clipChoices.length > 0 ? self.clipChoices[0].id : '1_1',
-					minChoicesForSearch: 0
-				}
+					minChoicesForSearch: 0,
+				},
 			],
 			callback: (feedback) => {
 				const [trackStr, clipStr] = feedback.options.clipId.split('_')
@@ -91,7 +90,7 @@ export async function UpdateFeedbacks(self) {
 				const clip = parseInt(clipStr)
 				const varId = `clip_warping_${track}_${clip}`
 				return self.getVariableValue(varId) === 'On'
-			}
+			},
 		},
 
 		clip_looping: {
@@ -99,7 +98,7 @@ export async function UpdateFeedbacks(self) {
 			name: 'Clip Looping',
 			description: 'Change color when clip looping is enabled',
 			defaultStyle: {
-				bgcolor: combineRgb(255, 173, 86)
+				bgcolor: combineRgb(255, 173, 86),
 			},
 			options: [
 				{
@@ -108,8 +107,8 @@ export async function UpdateFeedbacks(self) {
 					id: 'clipId',
 					choices: self.clipChoices,
 					default: self.clipChoices && self.clipChoices.length > 0 ? self.clipChoices[0].id : '1_1',
-					minChoicesForSearch: 0
-				}
+					minChoicesForSearch: 0,
+				},
 			],
 			callback: (feedback) => {
 				const [trackStr, clipStr] = feedback.options.clipId.split('_')
@@ -117,7 +116,7 @@ export async function UpdateFeedbacks(self) {
 				const clip = parseInt(clipStr)
 				const varId = `clip_looping_${track}_${clip}`
 				return self.getVariableValue(varId) === 'On'
-			}
+			},
 		},
 
 		// ============================================================
@@ -129,7 +128,7 @@ export async function UpdateFeedbacks(self) {
 			name: 'Track Meter Level',
 			description: 'Change color if track level is above threshold',
 			defaultStyle: {
-				bgcolor: combineRgb(255, 0, 0)
+				bgcolor: combineRgb(255, 0, 0),
 			},
 			options: [
 				{
@@ -137,7 +136,7 @@ export async function UpdateFeedbacks(self) {
 					label: 'Track',
 					id: 'track',
 					choices: self.trackChoices,
-					default: self.trackChoices[0].id
+					default: self.trackChoices[0].id,
 				},
 				{
 					type: 'number',
@@ -146,14 +145,14 @@ export async function UpdateFeedbacks(self) {
 					min: 0,
 					max: 1,
 					default: 0.8,
-					step: 0.01
-				}
+					step: 0.01,
+				},
 			],
 			callback: (feedback) => {
 				const track = feedback.options.track
 				const level = self.trackLevels[track] || 0
 				return level >= feedback.options.threshold
-			}
+			},
 		},
 
 		track_mute: {
@@ -161,7 +160,7 @@ export async function UpdateFeedbacks(self) {
 			name: 'Track Mute',
 			description: 'Change color if track is muted',
 			defaultStyle: {
-				bgcolor: combineRgb(255, 0, 0)
+				bgcolor: combineRgb(255, 0, 0),
 			},
 			options: [
 				{
@@ -169,13 +168,13 @@ export async function UpdateFeedbacks(self) {
 					label: 'Track',
 					id: 'track',
 					choices: self.trackChoices,
-					default: self.trackChoices[0].id
-				}
+					default: self.trackChoices[0].id,
+				},
 			],
 			callback: (feedback) => {
 				const track = feedback.options.track
 				return self.trackMutes[track] === true || self.trackMutes[track] === 1
-			}
+			},
 		},
 
 		// ============================================================
@@ -188,17 +187,20 @@ export async function UpdateFeedbacks(self) {
 			description: 'Change color if device parameter is active (> 0.5)',
 			defaultStyle: {
 				bgcolor: combineRgb(0, 255, 0),
-				color: combineRgb(0, 0, 0)
+				color: combineRgb(0, 0, 0),
 			},
 			options: [
 				{
 					type: 'dropdown',
 					label: 'Parameter (Scan project first)',
 					id: 'parameterId',
-					choices: self.knownParameters && self.knownParameters.length > 0 ? self.knownParameters : [{ id: '0_0_0', label: 'No parameters found' }],
+					choices:
+						self.knownParameters && self.knownParameters.length > 0
+							? self.knownParameters
+							: [{ id: '0_0_0', label: 'No parameters found' }],
 					default: self.knownParameters && self.knownParameters.length > 0 ? self.knownParameters[0].id : '0_0_0',
-					minChoicesForSearch: 0
-				}
+					minChoicesForSearch: 0,
+				},
 			],
 			callback: (feedback) => {
 				const paramId = feedback.options.parameterId
@@ -212,7 +214,7 @@ export async function UpdateFeedbacks(self) {
 				self.listenToDeviceParameter(track, device, parameter)
 
 				return self.deviceParameters[paramId] > 0.5
-			}
+			},
 		},
 
 		selected_parameter_active: {
@@ -220,29 +222,32 @@ export async function UpdateFeedbacks(self) {
 			name: 'Selected Parameter Active',
 			description: 'Change color if this parameter is currently selected for control',
 			defaultStyle: {
-				bgcolor: combineRgb(255, 165, 0)
+				bgcolor: combineRgb(255, 165, 0),
 			},
 			options: [
 				{
 					type: 'dropdown',
 					label: 'Parameter',
 					id: 'parameterId',
-					choices: self.knownParameters && self.knownParameters.length > 0 ? self.knownParameters : [{ id: '0_0_0', label: 'No parameters found' }],
+					choices:
+						self.knownParameters && self.knownParameters.length > 0
+							? self.knownParameters
+							: [{ id: '0_0_0', label: 'No parameters found' }],
 					default: self.knownParameters && self.knownParameters.length > 0 ? self.knownParameters[0].id : '0_0_0',
-					minChoicesForSearch: 0
-				}
+					minChoicesForSearch: 0,
+				},
 			],
 			callback: (feedback) => {
 				if (!self.selectedParameter || !feedback.options.parameterId) return false
-				
+
 				const [track, device, parameter] = feedback.options.parameterId.split('_').map(Number)
-				
+
 				return (
 					self.selectedParameter.track === track &&
 					self.selectedParameter.device === device &&
 					self.selectedParameter.parameter === parameter
 				)
-			}
-		}
+			},
+		},
 	})
 }

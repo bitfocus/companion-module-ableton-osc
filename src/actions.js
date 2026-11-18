@@ -26,28 +26,28 @@ export function UpdateActions(self) {
 					id: 'clipId',
 					choices: self.clipChoices,
 					default: self.clipChoices && self.clipChoices.length > 0 ? self.clipChoices[0].id : '1_1',
-					minChoicesForSearch: 0
-				}
+					minChoicesForSearch: 0,
+				},
 			],
 			callback: async (event) => {
 				const [trackStr, clipStr] = event.options.clipId.split('_')
 				const track = parseInt(trackStr) - 1
 				const clip = parseInt(clipStr) - 1
-				
+
 				// Cancel any active fade out on this track
 				self.cancelFadeOutOnTrack(track)
-				
+
 				self.sendOsc('/live/clip_slot/fire', [
 					{
 						type: 'i',
-						value: track
+						value: track,
 					},
 					{
 						type: 'i',
-						value: clip
-					}
+						value: clip,
+					},
 				])
-			}
+			},
 		},
 		stop_clip: {
 			name: 'Clip - Stop',
@@ -58,8 +58,8 @@ export function UpdateActions(self) {
 					id: 'clipId',
 					choices: self.clipChoices,
 					default: self.clipChoices && self.clipChoices.length > 0 ? self.clipChoices[0].id : '1_1',
-					minChoicesForSearch: 0
-				}
+					minChoicesForSearch: 0,
+				},
 			],
 			callback: async (event) => {
 				const [trackStr, clipStr] = event.options.clipId.split('_')
@@ -68,14 +68,14 @@ export function UpdateActions(self) {
 				self.sendOsc('/live/clip/stop', [
 					{
 						type: 'i',
-						value: track
+						value: track,
 					},
 					{
 						type: 'i',
-						value: clip
-					}
+						value: clip,
+					},
 				])
-			}
+			},
 		},
 		stop_track: {
 			name: 'Track - Stop',
@@ -85,18 +85,18 @@ export function UpdateActions(self) {
 					label: 'Track',
 					id: 'track',
 					choices: self.trackChoices,
-					default: self.trackChoices[0].id
-				}
+					default: self.trackChoices[0].id,
+				},
 			],
 			callback: async (event) => {
 				const track = event.options.track - 1
 				self.sendOsc('/live/track/stop_all_clips', [
 					{
 						type: 'i',
-						value: track
-					}
+						value: track,
+					},
 				])
-			}
+			},
 		},
 		mute_track: {
 			name: 'Track - Mute',
@@ -106,7 +106,7 @@ export function UpdateActions(self) {
 					label: 'Track',
 					id: 'track',
 					choices: self.trackChoices,
-					default: self.trackChoices[0].id
+					default: self.trackChoices[0].id,
 				},
 				{
 					type: 'dropdown',
@@ -116,33 +116,33 @@ export function UpdateActions(self) {
 					choices: [
 						{ id: 'toggle', label: 'Toggle' },
 						{ id: 'on', label: 'Mute' },
-						{ id: 'off', label: 'Unmute' }
-					]
-				}
+						{ id: 'off', label: 'Unmute' },
+					],
+				},
 			],
 			callback: async (event) => {
 				const track = event.options.track - 1
 				let mute = event.options.mute
-				
+
 				if (mute === 'toggle') {
 					// trackMutes is keyed 1-based and kept current by the /live/track/start_listen/mute subscription
 					const current = self.trackMutes[event.options.track]
 					mute = current ? 'off' : 'on'
 				}
-				
+
 				const val = mute === 'on' ? 1 : 0
-				
+
 				self.sendOsc('/live/track/set/mute', [
 					{
 						type: 'i',
-						value: track
+						value: track,
 					},
 					{
 						type: 'i',
-						value: val
-					}
+						value: val,
+					},
 				])
-			}
+			},
 		},
 		device_toggle: {
 			name: 'Device - Toggle',
@@ -152,7 +152,7 @@ export function UpdateActions(self) {
 					label: 'Device',
 					id: 'device',
 					choices: self.deviceChoices,
-					default: self.deviceChoices[0].id
+					default: self.deviceChoices[0].id,
 				},
 				{
 					type: 'number',
@@ -160,7 +160,7 @@ export function UpdateActions(self) {
 					id: 'parameter',
 					min: 1,
 					max: 1000,
-					default: 1
+					default: 1,
 				},
 				{
 					type: 'dropdown',
@@ -170,9 +170,9 @@ export function UpdateActions(self) {
 					choices: [
 						{ id: 'toggle', label: 'Toggle' },
 						{ id: 'on', label: 'On' },
-						{ id: 'off', label: 'Off' }
-					]
-				}
+						{ id: 'off', label: 'Off' },
+					],
+				},
 			],
 			callback: async (event) => {
 				const [trackStr, deviceStr] = event.options.device.split('_')
@@ -180,7 +180,7 @@ export function UpdateActions(self) {
 				const device = parseInt(deviceStr) - 1
 				const parameter = event.options.parameter - 1
 				let state = event.options.state
-				
+
 				// Toggling reads the cached value, so re-arm the subscription on every press:
 				// without it a listener Live has dropped leaves the cache frozen and the toggle
 				// only ever works once
@@ -192,16 +192,16 @@ export function UpdateActions(self) {
 					const currentVal = current !== undefined ? current : 0
 					state = currentVal > 0.5 ? 'off' : 'on'
 				}
-				
+
 				const val = state === 'on' ? 1.0 : 0.0
-				
+
 				self.sendOsc('/live/device/set/parameter/value', [
 					{ type: 'i', value: track },
 					{ type: 'i', value: device },
 					{ type: 'i', value: parameter },
-					{ type: 'f', value: val }
+					{ type: 'f', value: val },
 				])
-			}
+			},
 		},
 		device_set_parameter: {
 			name: 'Device - Set Parameter Value',
@@ -210,22 +210,25 @@ export function UpdateActions(self) {
 					type: 'dropdown',
 					label: 'Parameter (Scan project first)',
 					id: 'parameterId',
-					choices: self.knownParameters && self.knownParameters.length > 0 ? self.knownParameters : [{ id: '0_0_0', label: 'No parameters found - Scan Project' }],
+					choices:
+						self.knownParameters && self.knownParameters.length > 0
+							? self.knownParameters
+							: [{ id: '0_0_0', label: 'No parameters found - Scan Project' }],
 					default: self.knownParameters && self.knownParameters.length > 0 ? self.knownParameters[0].id : '0_0_0',
-					minChoicesForSearch: 0
+					minChoicesForSearch: 0,
 				},
 				{
 					type: 'textinput',
 					label: 'Value (0-100)',
 					id: 'value',
-					default: '50'
+					default: '50',
 				},
 				{
 					type: 'checkbox',
 					label: 'Create Variable for this parameter?',
 					id: 'create_variable',
-					default: false
-				}
+					default: false,
+				},
 			],
 			callback: async (event) => {
 				const paramId = event.options.parameterId
@@ -247,9 +250,9 @@ export function UpdateActions(self) {
 					{ type: 'i', value: track },
 					{ type: 'i', value: device },
 					{ type: 'i', value: parameter },
-					{ type: 'f', value: value }
+					{ type: 'f', value: value },
 				])
-			}
+			},
 		},
 		device_parameter_step: {
 			name: 'Device - Step Parameter Value (Rotary/Button)',
@@ -258,22 +261,25 @@ export function UpdateActions(self) {
 					type: 'dropdown',
 					label: 'Parameter (Scan project first)',
 					id: 'parameterId',
-					choices: self.knownParameters && self.knownParameters.length > 0 ? self.knownParameters : [{ id: '0_0_0', label: 'No parameters found - Scan Project' }],
+					choices:
+						self.knownParameters && self.knownParameters.length > 0
+							? self.knownParameters
+							: [{ id: '0_0_0', label: 'No parameters found - Scan Project' }],
 					default: self.knownParameters && self.knownParameters.length > 0 ? self.knownParameters[0].id : '0_0_0',
-					minChoicesForSearch: 0
+					minChoicesForSearch: 0,
 				},
 				{
 					type: 'textinput',
 					label: 'Step (e.g. 1, 5, -5) (Scale 0-100)',
 					id: 'step',
-					default: '1'
+					default: '1',
 				},
 				{
 					type: 'checkbox',
 					label: 'Create Variable for this parameter?',
 					id: 'create_variable',
-					default: false
-				}
+					default: false,
+				},
 			],
 			callback: async (event) => {
 				const paramId = event.options.parameterId
@@ -296,21 +302,21 @@ export function UpdateActions(self) {
 
 				const key = `${track + 1}_${device + 1}_${parameter + 1}`
 				const current = self.deviceParameters[key]
-				
+
 				if (current !== undefined) {
 					let newValue = current + step
 					newValue = Math.max(0.0, Math.min(1.0, newValue))
-					
+
 					self.sendOsc('/live/device/set/parameter/value', [
 						{ type: 'i', value: track },
 						{ type: 'i', value: device },
 						{ type: 'i', value: parameter },
-						{ type: 'f', value: newValue }
+						{ type: 'f', value: newValue },
 					])
 				} else {
 					self.log('warn', `Parameter ${key} value unknown. Listening started. Try again.`)
 				}
-			}
+			},
 		},
 		select_device_parameter: {
 			name: 'Device - Select Parameter',
@@ -319,16 +325,19 @@ export function UpdateActions(self) {
 					type: 'dropdown',
 					label: 'Parameter (Scan project first)',
 					id: 'parameterId',
-					choices: self.knownParameters && self.knownParameters.length > 0 ? self.knownParameters : [{ id: '0_0_0', label: 'No parameters found - Scan Project' }],
+					choices:
+						self.knownParameters && self.knownParameters.length > 0
+							? self.knownParameters
+							: [{ id: '0_0_0', label: 'No parameters found - Scan Project' }],
 					default: self.knownParameters && self.knownParameters.length > 0 ? self.knownParameters[0].id : '0_0_0',
-					minChoicesForSearch: 0
+					minChoicesForSearch: 0,
 				},
 				{
 					type: 'checkbox',
 					label: 'Create Variable for this parameter?',
 					id: 'createVariable',
-					default: false
-				}
+					default: false,
+				},
 			],
 			callback: async (event) => {
 				const paramId = event.options.parameterId
@@ -338,11 +347,11 @@ export function UpdateActions(self) {
 				}
 
 				const [track, device, parameter] = paramId.split('_').map(Number)
-				
+
 				self.selectedParameter = { track, device, parameter }
-				
+
 				// Find the label to set the name variable
-				const paramObj = self.knownParameters.find(p => p.id === paramId)
+				const paramObj = self.knownParameters.find((p) => p.id === paramId)
 				const paramName = paramObj ? paramObj.label : `T${track} D${device} P${parameter}`
 
 				// Labels are built as "Track > Device > Parameter": keep only the last
@@ -355,7 +364,7 @@ export function UpdateActions(self) {
 					selected_parameter_num: parameter,
 					selected_parameter_value: '...', // Reset while fetching
 					selected_parameter_name: paramName,
-					selected_parameter_name_short: paramNameShort
+					selected_parameter_name_short: paramNameShort,
 				})
 
 				// Optional dedicated variable, on top of the generic $(ableton:selected_parameter_*) ones.
@@ -381,17 +390,16 @@ export function UpdateActions(self) {
 				self.sendOsc('/live/device/get/parameter/value', [
 					{ type: 'i', value: track - 1 },
 					{ type: 'i', value: device - 1 },
-					{ type: 'i', value: parameter - 1 }
+					{ type: 'i', value: parameter - 1 },
 				])
 				self.sendOsc('/live/device/get/parameter/value_string', [
 					{ type: 'i', value: track - 1 },
 					{ type: 'i', value: device - 1 },
-					{ type: 'i', value: parameter - 1 }
+					{ type: 'i', value: parameter - 1 },
 				])
 
-
 				self.checkFeedbacks('selected_parameter_active')
-			}
+			},
 		},
 		toggle_selected_device_parameter: {
 			name: 'Selected Device Parameter - Toggle',
@@ -401,24 +409,24 @@ export function UpdateActions(self) {
 					self.log('warn', 'No parameter selected for toggling')
 					return
 				}
-				
+
 				const track = self.selectedParameter.track - 1
 				const device = self.selectedParameter.device - 1
 				const parameter = self.selectedParameter.parameter - 1
-				
+
 				// Use last known value or default to 0
 				const current = self.selectedParameter.lastValue || 0
-				
+
 				// Toggle logic: if > 0.5 (50%), go to 0. Else go to 1 (100%)
 				const newValue = current > 0.5 ? 0.0 : 1.0
-				
+
 				self.sendOsc('/live/device/set/parameter/value', [
 					{ type: 'i', value: track },
 					{ type: 'i', value: device },
 					{ type: 'i', value: parameter },
-					{ type: 'f', value: newValue }
+					{ type: 'f', value: newValue },
 				])
-			}
+			},
 		},
 		step_selected_device_parameter: {
 			name: 'Selected Device Parameter - Step (+/-)',
@@ -427,39 +435,39 @@ export function UpdateActions(self) {
 					type: 'textinput',
 					label: 'Step (e.g. 1, 5, -5) (Scale 0-100)',
 					id: 'step',
-					default: '1'
-				}
+					default: '1',
+				},
 			],
 			callback: async (event) => {
 				if (!self.selectedParameter) {
 					self.log('warn', 'No parameter selected for stepping')
 					return
 				}
-				
+
 				const track = self.selectedParameter.track - 1
 				const device = self.selectedParameter.device - 1
 				const parameter = self.selectedParameter.parameter - 1
 				const step = parseFloat(event.options.step) / 100.0
-				
+
 				const key = `${self.selectedParameter.track}_${self.selectedParameter.device}_${self.selectedParameter.parameter}`
 				const current = self.deviceParameters[key]
-				
+
 				if (current !== undefined) {
 					let newValue = current + step
 					newValue = Math.max(0.0, Math.min(1.0, newValue))
-					
+
 					self.sendOsc('/live/device/set/parameter/value', [
 						{ type: 'i', value: track },
 						{ type: 'i', value: device },
 						{ type: 'i', value: parameter },
-						{ type: 'f', value: newValue }
+						{ type: 'f', value: newValue },
 					])
 				} else {
 					// Value not known yet: (re)subscribe so the next press has something to step from
 					self.listenToDeviceParameter(track, device, parameter, { force: true })
 					self.log('warn', `Parameter ${key} value unknown. Listening started. Try again.`)
 				}
-			}
+			},
 		},
 		set_selected_device_parameter: {
 			name: 'Selected Device Parameter - Set Value',
@@ -468,27 +476,27 @@ export function UpdateActions(self) {
 					type: 'textinput',
 					label: 'Value (0-100)',
 					id: 'value',
-					default: '50'
-				}
+					default: '50',
+				},
 			],
 			callback: async (event) => {
 				if (!self.selectedParameter) {
 					self.log('warn', 'No parameter selected for setting value')
 					return
 				}
-				
+
 				const track = self.selectedParameter.track - 1
 				const device = self.selectedParameter.device - 1
 				const parameter = self.selectedParameter.parameter - 1
 				const value = parseFloat(event.options.value) / 100.0
-				
+
 				self.sendOsc('/live/device/set/parameter/value', [
 					{ type: 'i', value: track },
 					{ type: 'i', value: device },
 					{ type: 'i', value: parameter },
-					{ type: 'f', value: value }
+					{ type: 'f', value: value },
 				])
-			}
+			},
 		},
 		fade_stop_clip: {
 			name: 'Clip - Fade Out and Stop',
@@ -499,7 +507,7 @@ export function UpdateActions(self) {
 					id: 'clipId',
 					choices: self.clipChoices,
 					default: self.clipChoices && self.clipChoices.length > 0 ? self.clipChoices[0].id : '1_1',
-					minChoicesForSearch: 0
+					minChoicesForSearch: 0,
 				},
 				{
 					type: 'number',
@@ -507,8 +515,8 @@ export function UpdateActions(self) {
 					id: 'duration',
 					min: 100,
 					max: 60000,
-					default: 3500
-				}
+					default: 3500,
+				},
 			],
 			callback: async (event) => {
 				const [trackStr, clipStr] = event.options.clipId.split('_')
@@ -531,15 +539,15 @@ export function UpdateActions(self) {
 					clip,
 					duration,
 					startTime: Date.now(),
-					state: 'init'
+					state: 'init',
 				}
 
 				// The fade only starts once Live answers with the current gain (see startFade)
 				self.sendOsc('/live/clip/get/gain', [
 					{ type: 'i', value: track },
-					{ type: 'i', value: clip }
+					{ type: 'i', value: clip },
 				])
-			}
+			},
 		},
 		fade_fire_clip: {
 			name: 'Clip - Fire and Fade In',
@@ -550,7 +558,7 @@ export function UpdateActions(self) {
 					id: 'clipId',
 					choices: self.clipChoices,
 					default: self.clipChoices && self.clipChoices.length > 0 ? self.clipChoices[0].id : '1_1',
-					minChoicesForSearch: 0
+					minChoicesForSearch: 0,
 				},
 				{
 					type: 'number',
@@ -558,8 +566,8 @@ export function UpdateActions(self) {
 					id: 'duration',
 					min: 100,
 					max: 60000,
-					default: 3500
-				}
+					default: 3500,
+				},
 			],
 			callback: async (event) => {
 				const [trackStr, clipStr] = event.options.clipId.split('_')
@@ -582,15 +590,15 @@ export function UpdateActions(self) {
 					clip,
 					duration,
 					startTime: Date.now(),
-					state: 'init'
+					state: 'init',
 				}
 
 				// The clip is fired by startFade, once Live answers with the current gain
 				self.sendOsc('/live/clip/get/gain', [
 					{ type: 'i', value: track },
-					{ type: 'i', value: clip }
+					{ type: 'i', value: clip },
 				])
-			}
+			},
 		},
 		fade_stop_track: {
 			name: 'Track - Fade Out and Stop',
@@ -600,7 +608,7 @@ export function UpdateActions(self) {
 					label: 'Track',
 					id: 'track',
 					choices: self.trackChoices,
-					default: self.trackChoices[0].id
+					default: self.trackChoices[0].id,
 				},
 				{
 					type: 'number',
@@ -608,8 +616,8 @@ export function UpdateActions(self) {
 					id: 'duration',
 					min: 100,
 					max: 60000,
-					default: 3500
-				}
+					default: 3500,
+				},
 			],
 			callback: async (event) => {
 				const track = event.options.track - 1
@@ -629,14 +637,12 @@ export function UpdateActions(self) {
 					track,
 					duration,
 					startTime: Date.now(),
-					state: 'init'
+					state: 'init',
 				}
 
 				// The fade only starts once Live answers with the current volume (see startFade)
-				self.sendOsc('/live/track/get/volume', [
-					{ type: 'i', value: track }
-				])
-			}
+				self.sendOsc('/live/track/get/volume', [{ type: 'i', value: track }])
+			},
 		},
 		fade_in_track: {
 			name: 'Track - Fade In',
@@ -646,7 +652,7 @@ export function UpdateActions(self) {
 					label: 'Track',
 					id: 'track',
 					choices: self.trackChoices,
-					default: self.trackChoices[0].id
+					default: self.trackChoices[0].id,
 				},
 				{
 					type: 'number',
@@ -654,8 +660,8 @@ export function UpdateActions(self) {
 					id: 'duration',
 					min: 100,
 					max: 60000,
-					default: 3500
-				}
+					default: 3500,
+				},
 			],
 			callback: async (event) => {
 				const track = event.options.track - 1
@@ -675,14 +681,12 @@ export function UpdateActions(self) {
 					track,
 					duration,
 					startTime: Date.now(),
-					state: 'init'
+					state: 'init',
 				}
 
 				// The fade only starts once Live answers with the current volume (see startFade)
-				self.sendOsc('/live/track/get/volume', [
-					{ type: 'i', value: track }
-				])
-			}
+				self.sendOsc('/live/track/get/volume', [{ type: 'i', value: track }])
+			},
 		},
 		fade_track_toggle: {
 			name: 'Track - Fade by State of a variable',
@@ -692,14 +696,14 @@ export function UpdateActions(self) {
 					label: 'State (True/False)',
 					id: 'state',
 					default: 'false',
-					useVariables: true
+					useVariables: true,
 				},
 				{
 					type: 'dropdown',
 					label: 'Track',
 					id: 'track',
 					choices: self.trackChoices,
-					default: self.trackChoices[0].id
+					default: self.trackChoices[0].id,
 				},
 				{
 					type: 'number',
@@ -707,7 +711,7 @@ export function UpdateActions(self) {
 					id: 'hold_time',
 					min: 0,
 					max: 60000,
-					default: 0
+					default: 0,
 				},
 				{
 					type: 'number',
@@ -715,7 +719,7 @@ export function UpdateActions(self) {
 					id: 'rise_time',
 					min: 100,
 					max: 60000,
-					default: 750
+					default: 750,
 				},
 				{
 					type: 'number',
@@ -723,7 +727,7 @@ export function UpdateActions(self) {
 					id: 'on_time',
 					min: 0,
 					max: 60000,
-					default: 500
+					default: 500,
 				},
 				{
 					type: 'number',
@@ -731,7 +735,7 @@ export function UpdateActions(self) {
 					id: 'fall_time',
 					min: 100,
 					max: 60000,
-					default: 3500
+					default: 3500,
 				},
 				{
 					type: 'number',
@@ -739,7 +743,7 @@ export function UpdateActions(self) {
 					id: 'on_level',
 					min: 0,
 					max: 100,
-					default: 85
+					default: 85,
 				},
 				{
 					type: 'number',
@@ -747,8 +751,8 @@ export function UpdateActions(self) {
 					id: 'off_level',
 					min: 0,
 					max: 100,
-					default: 0
-				}
+					default: 0,
+				},
 			],
 			callback: async (event) => {
 				const track = event.options.track - 1
@@ -759,16 +763,16 @@ export function UpdateActions(self) {
 					state = state.toLowerCase().trim()
 				}
 
-				const isTrue = (state === 'true' || state === '1' || state === 'on')
+				const isTrue = state === 'true' || state === '1' || state === 'on'
 
 				self.log('debug', `Fade by State: input="${event.options.state}" parsed="${state}" isTrue=${isTrue}`)
-				
+
 				const riseTime = event.options.rise_time
 				const fallTime = event.options.fall_time
 				const onTime = event.options.on_time
 				const holdTime = event.options.hold_time
-				const onLevel = event.options.on_level / 100  // Convert to 0-1 range
-				const offLevel = event.options.off_level / 100  // Convert to 0-1 range
+				const onLevel = event.options.on_level / 100 // Convert to 0-1 range
+				const offLevel = event.options.off_level / 100 // Convert to 0-1 range
 
 				const id = `track_${track}`
 
@@ -800,7 +804,7 @@ export function UpdateActions(self) {
 						self.setupTrackToggleFade(track, 'out', fallTime, onLevel, offLevel)
 					}
 				}
-			}
+			},
 		},
 		refresh_clip_info: {
 			name: 'Clip - Refresh Info',
@@ -811,26 +815,26 @@ export function UpdateActions(self) {
 					id: 'clipId',
 					choices: self.clipChoices,
 					default: self.clipChoices && self.clipChoices.length > 0 ? self.clipChoices[0].id : '1_1',
-					minChoicesForSearch: 0
-				}
+					minChoicesForSearch: 0,
+				},
 			],
 			callback: async (event) => {
 				const [trackStr, clipStr] = event.options.clipId.split('_')
 				const track = parseInt(trackStr) - 1
 				const clip = parseInt(clipStr) - 1
-				
+
 				// Request Name
 				self.sendOsc('/live/clip/get/name', [
 					{ type: 'i', value: track },
-					{ type: 'i', value: clip }
+					{ type: 'i', value: clip },
 				])
 
 				// Request Color
 				self.sendOsc('/live/clip/get/color', [
 					{ type: 'i', value: track },
-					{ type: 'i', value: clip }
+					{ type: 'i', value: clip },
 				])
-			}
+			},
 		},
 		scan_project: {
 			name: 'Project - Scan',
@@ -838,7 +842,7 @@ export function UpdateActions(self) {
 			callback: async (event) => {
 				self.sendOsc('/live/song/get/num_tracks', [])
 				self.sendOsc('/live/song/get/num_scenes', [])
-			}
+			},
 		},
 		// ============================================================
 		// CLIP LOOP & MARKER ACTIONS
@@ -853,23 +857,23 @@ export function UpdateActions(self) {
 					id: 'clipId',
 					choices: self.clipChoices,
 					default: self.clipChoices && self.clipChoices.length > 0 ? self.clipChoices[0].id : '1_1',
-					minChoicesForSearch: 0
-				}
+					minChoicesForSearch: 0,
+				},
 			],
 			callback: async (event) => {
 				const [trackStr, clipStr] = event.options.clipId.split('_')
 				const track = parseInt(trackStr) - 1
 				const clip = parseInt(clipStr) - 1
-				
+
 				// Store pending request to chain the commands
 				self.pendingLoopSet = { track, clip, type: 'loop_start' }
-				
+
 				// Request current playing position
 				self.sendOsc('/live/clip/get/playing_position', [
 					{ type: 'i', value: track },
-					{ type: 'i', value: clip }
+					{ type: 'i', value: clip },
 				])
-			}
+			},
 		},
 		clip_set_loop_end_now: {
 			name: 'Clip - Set Loop End to Now',
@@ -881,21 +885,21 @@ export function UpdateActions(self) {
 					id: 'clipId',
 					choices: self.clipChoices,
 					default: self.clipChoices && self.clipChoices.length > 0 ? self.clipChoices[0].id : '1_1',
-					minChoicesForSearch: 0
-				}
+					minChoicesForSearch: 0,
+				},
 			],
 			callback: async (event) => {
 				const [trackStr, clipStr] = event.options.clipId.split('_')
 				const track = parseInt(trackStr) - 1
 				const clip = parseInt(clipStr) - 1
-				
+
 				self.pendingLoopSet = { track, clip, type: 'loop_end' }
-				
+
 				self.sendOsc('/live/clip/get/playing_position', [
 					{ type: 'i', value: track },
-					{ type: 'i', value: clip }
+					{ type: 'i', value: clip },
 				])
-			}
+			},
 		},
 		clip_set_start_marker_now: {
 			name: 'Clip - Set Start Marker to Now',
@@ -907,21 +911,21 @@ export function UpdateActions(self) {
 					id: 'clipId',
 					choices: self.clipChoices,
 					default: self.clipChoices && self.clipChoices.length > 0 ? self.clipChoices[0].id : '1_1',
-					minChoicesForSearch: 0
-				}
+					minChoicesForSearch: 0,
+				},
 			],
 			callback: async (event) => {
 				const [trackStr, clipStr] = event.options.clipId.split('_')
 				const track = parseInt(trackStr) - 1
 				const clip = parseInt(clipStr) - 1
-				
+
 				self.pendingLoopSet = { track, clip, type: 'start_marker' }
-				
+
 				self.sendOsc('/live/clip/get/playing_position', [
 					{ type: 'i', value: track },
-					{ type: 'i', value: clip }
+					{ type: 'i', value: clip },
 				])
-			}
+			},
 		},
 		clip_set_end_marker_now: {
 			name: 'Clip - Set End Marker to Now',
@@ -933,21 +937,21 @@ export function UpdateActions(self) {
 					id: 'clipId',
 					choices: self.clipChoices,
 					default: self.clipChoices && self.clipChoices.length > 0 ? self.clipChoices[0].id : '1_1',
-					minChoicesForSearch: 0
-				}
+					minChoicesForSearch: 0,
+				},
 			],
 			callback: async (event) => {
 				const [trackStr, clipStr] = event.options.clipId.split('_')
 				const track = parseInt(trackStr) - 1
 				const clip = parseInt(clipStr) - 1
-				
+
 				self.pendingLoopSet = { track, clip, type: 'end_marker' }
-				
+
 				self.sendOsc('/live/clip/get/playing_position', [
 					{ type: 'i', value: track },
-					{ type: 'i', value: clip }
+					{ type: 'i', value: clip },
 				])
-			}
+			},
 		},
 		clip_set_loop_start: {
 			name: 'Clip - Set Loop Start (Value)',
@@ -959,28 +963,28 @@ export function UpdateActions(self) {
 					id: 'clipId',
 					choices: self.clipChoices,
 					default: self.clipChoices && self.clipChoices.length > 0 ? self.clipChoices[0].id : '1_1',
-					minChoicesForSearch: 0
+					minChoicesForSearch: 0,
 				},
 				{
 					type: 'textinput',
 					label: 'Beat Position',
 					id: 'position',
 					default: '0',
-					tooltip: 'Position in beats (e.g., 4.0 for beat 4)'
-				}
+					tooltip: 'Position in beats (e.g., 4.0 for beat 4)',
+				},
 			],
 			callback: async (event) => {
 				const [trackStr, clipStr] = event.options.clipId.split('_')
 				const track = parseInt(trackStr) - 1
 				const clip = parseInt(clipStr) - 1
 				const position = parseFloat(event.options.position) || 0
-				
+
 				self.sendOsc('/live/clip/set/loop_start', [
 					{ type: 'i', value: track },
 					{ type: 'i', value: clip },
-					{ type: 'f', value: position }
+					{ type: 'f', value: position },
 				])
-			}
+			},
 		},
 		clip_set_loop_end: {
 			name: 'Clip - Set Loop End (Value)',
@@ -992,28 +996,28 @@ export function UpdateActions(self) {
 					id: 'clipId',
 					choices: self.clipChoices,
 					default: self.clipChoices && self.clipChoices.length > 0 ? self.clipChoices[0].id : '1_1',
-					minChoicesForSearch: 0
+					minChoicesForSearch: 0,
 				},
 				{
 					type: 'textinput',
 					label: 'Beat Position',
 					id: 'position',
 					default: '16',
-					tooltip: 'Position in beats (e.g., 16.0 for beat 16)'
-				}
+					tooltip: 'Position in beats (e.g., 16.0 for beat 16)',
+				},
 			],
 			callback: async (event) => {
 				const [trackStr, clipStr] = event.options.clipId.split('_')
 				const track = parseInt(trackStr) - 1
 				const clip = parseInt(clipStr) - 1
 				const position = parseFloat(event.options.position) || 16
-				
+
 				self.sendOsc('/live/clip/set/loop_end', [
 					{ type: 'i', value: track },
 					{ type: 'i', value: clip },
-					{ type: 'f', value: position }
+					{ type: 'f', value: position },
 				])
-			}
+			},
 		},
 		// ============================================================
 		// CLIP WARPING
@@ -1028,7 +1032,7 @@ export function UpdateActions(self) {
 					id: 'clipId',
 					choices: self.clipChoices,
 					default: self.clipChoices && self.clipChoices.length > 0 ? self.clipChoices[0].id : '1_1',
-					minChoicesForSearch: 0
+					minChoicesForSearch: 0,
 				},
 				{
 					type: 'dropdown',
@@ -1038,31 +1042,31 @@ export function UpdateActions(self) {
 					choices: [
 						{ id: 'toggle', label: 'Toggle' },
 						{ id: 'on', label: 'On' },
-						{ id: 'off', label: 'Off' }
-					]
-				}
+						{ id: 'off', label: 'Off' },
+					],
+				},
 			],
 			callback: async (event) => {
 				const [trackStr, clipStr] = event.options.clipId.split('_')
 				const track = parseInt(trackStr) - 1
 				const clip = parseInt(clipStr) - 1
 				const state = event.options.state
-				
+
 				if (state === 'toggle') {
 					// Get current state first
 					self.pendingWarpingToggle = { track, clip }
 					self.sendOsc('/live/clip/get/warping', [
 						{ type: 'i', value: track },
-						{ type: 'i', value: clip }
+						{ type: 'i', value: clip },
 					])
 				} else {
 					self.sendOsc('/live/clip/set/warping', [
 						{ type: 'i', value: track },
 						{ type: 'i', value: clip },
-						{ type: 'i', value: state === 'on' ? 1 : 0 }
+						{ type: 'i', value: state === 'on' ? 1 : 0 },
 					])
 				}
-			}
+			},
 		},
 		// ============================================================
 		// CLIP LOOPING
@@ -1077,7 +1081,7 @@ export function UpdateActions(self) {
 					id: 'clipId',
 					choices: self.clipChoices,
 					default: self.clipChoices && self.clipChoices.length > 0 ? self.clipChoices[0].id : '1_1',
-					minChoicesForSearch: 0
+					minChoicesForSearch: 0,
 				},
 				{
 					type: 'dropdown',
@@ -1087,31 +1091,31 @@ export function UpdateActions(self) {
 					choices: [
 						{ id: 'toggle', label: 'Toggle' },
 						{ id: 'on', label: 'On' },
-						{ id: 'off', label: 'Off' }
-					]
-				}
+						{ id: 'off', label: 'Off' },
+					],
+				},
 			],
 			callback: async (event) => {
 				const [trackStr, clipStr] = event.options.clipId.split('_')
 				const track = parseInt(trackStr) - 1
 				const clip = parseInt(clipStr) - 1
 				const state = event.options.state
-				
+
 				if (state === 'toggle') {
 					// Get current state first
 					self.pendingLoopingToggle = { track, clip }
 					self.sendOsc('/live/clip/get/looping', [
 						{ type: 'i', value: track },
-						{ type: 'i', value: clip }
+						{ type: 'i', value: clip },
 					])
 				} else {
 					self.sendOsc('/live/clip/set/looping', [
 						{ type: 'i', value: track },
 						{ type: 'i', value: clip },
-						{ type: 'i', value: state === 'on' ? 1 : 0 }
+						{ type: 'i', value: state === 'on' ? 1 : 0 },
 					])
 				}
-			}
+			},
 		},
 		clip_get_info: {
 			name: 'Clip - Get Info (Loop/Warp)',
@@ -1123,40 +1127,40 @@ export function UpdateActions(self) {
 					id: 'clipId',
 					choices: self.clipChoices,
 					default: self.clipChoices && self.clipChoices.length > 0 ? self.clipChoices[0].id : '1_1',
-					minChoicesForSearch: 0
-				}
+					minChoicesForSearch: 0,
+				},
 			],
 			callback: async (event) => {
 				const [trackStr, clipStr] = event.options.clipId.split('_')
 				const track = parseInt(trackStr) - 1
 				const clip = parseInt(clipStr) - 1
-				
+
 				// Request all clip info
 				self.sendOsc('/live/clip/get/loop_start', [
 					{ type: 'i', value: track },
-					{ type: 'i', value: clip }
+					{ type: 'i', value: clip },
 				])
 				self.sendOsc('/live/clip/get/loop_end', [
 					{ type: 'i', value: track },
-					{ type: 'i', value: clip }
+					{ type: 'i', value: clip },
 				])
 				self.sendOsc('/live/clip/get/start_marker', [
 					{ type: 'i', value: track },
-					{ type: 'i', value: clip }
+					{ type: 'i', value: clip },
 				])
 				self.sendOsc('/live/clip/get/end_marker', [
 					{ type: 'i', value: track },
-					{ type: 'i', value: clip }
+					{ type: 'i', value: clip },
 				])
 				self.sendOsc('/live/clip/get/looping', [
 					{ type: 'i', value: track },
-					{ type: 'i', value: clip }
+					{ type: 'i', value: clip },
 				])
 				self.sendOsc('/live/clip/get/warping', [
 					{ type: 'i', value: track },
-					{ type: 'i', value: clip }
+					{ type: 'i', value: clip },
 				])
-			}
+			},
 		},
 		raw_osc: {
 			name: 'OSC - Send Raw Command',
@@ -1167,25 +1171,26 @@ export function UpdateActions(self) {
 					label: 'OSC Address',
 					id: 'address',
 					default: '/live/song/get/tempo',
-					tooltip: 'The OSC address path (e.g., /live/song/set/tempo)'
+					tooltip: 'The OSC address path (e.g., /live/song/set/tempo)',
 				},
 				{
 					type: 'textinput',
 					label: 'Arguments (comma-separated)',
 					id: 'args',
 					default: '',
-					tooltip: 'Comma-separated arguments. Prefix with type: i:123 (int), f:1.5 (float), s:text (string). Without prefix, auto-detected.'
-				}
+					tooltip:
+						'Comma-separated arguments. Prefix with type: i:123 (int), f:1.5 (float), s:text (string). Without prefix, auto-detected.',
+				},
 			],
 			callback: async (event) => {
 				const address = event.options.address.trim()
 				const argsStr = event.options.args?.trim() || ''
-				
+
 				let oscArgs = []
-				
+
 				if (argsStr.length > 0) {
-					const parts = argsStr.split(',').map(p => p.trim())
-					
+					const parts = argsStr.split(',').map((p) => p.trim())
+
 					for (const part of parts) {
 						if (part.startsWith('i:')) {
 							// Explicit integer
@@ -1212,10 +1217,10 @@ export function UpdateActions(self) {
 						}
 					}
 				}
-				
+
 				self.log('info', `Raw OSC: ${address} ${JSON.stringify(oscArgs)}`)
 				self.sendOsc(address, oscArgs)
-			}
-		}
+			},
+		},
 	})
 }

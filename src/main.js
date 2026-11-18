@@ -15,7 +15,7 @@ export { UpgradeScripts }
 export default class AbletonOSCInstance extends InstanceBase {
 	constructor(internal) {
 		super(internal)
-		
+
 		// State storage
 		this.clipColors = {}
 		this.trackLevels = {}
@@ -28,13 +28,13 @@ export default class AbletonOSCInstance extends InstanceBase {
 		this.trackDelays = {}
 		this.clipNames = {}
 		this.clipSlotHasClip = {}
-		
+
 		// Configuration
 		this.variableDefinitions = {}
 		this.numTracks = 8
 		this.numScenes = 8
 		this.knownParameters = []
-		
+
 		// Runtime state
 		// Delay (ms) between stopping a clip/track at the end of a fade-out and restoring its
 		// volume/gain to the original value, so Live has time to actually stop playback before
@@ -48,7 +48,7 @@ export default class AbletonOSCInstance extends InstanceBase {
 		this.selectedParameter = null
 		this.lastPresetsHash = ''
 		this.isScanning = false
-		
+
 		// Timers and throttling
 		this.blinkInterval = null
 		this.fetchTimeout = null
@@ -73,23 +73,22 @@ export default class AbletonOSCInstance extends InstanceBase {
 
 		this.initOsc()
 		this.log('debug', `initOsc: ${Date.now() - startTime}ms`)
-		
+
 		this.initActions()
 		this.log('debug', `initActions: ${Date.now() - startTime}ms`)
-		
+
 		this.initFeedbacks()
 		this.log('debug', `initFeedbacks: ${Date.now() - startTime}ms`)
-		
+
 		this.initVariables()
 		this.log('debug', `initVariables: ${Date.now() - startTime}ms`)
-		
+
 		this.initPresets()
 		this.log('debug', `initPresets: ${Date.now() - startTime}ms`)
-		
+
 		this.startBlink()
 		this.log('info', `Module initialization complete in ${Date.now() - startTime}ms`)
 	}
-
 
 	async destroy() {
 		if (this.blinkInterval) clearInterval(this.blinkInterval)
@@ -140,7 +139,7 @@ export default class AbletonOSCInstance extends InstanceBase {
 					this.sendOsc('/live/device/stop_listen/parameter/value', [
 						{ type: 'i', value: track },
 						{ type: 'i', value: device },
-						{ type: 'i', value: parameter }
+						{ type: 'i', value: parameter },
 					])
 				}
 			} catch (e) {}
@@ -165,7 +164,7 @@ export default class AbletonOSCInstance extends InstanceBase {
 				label: 'Target IP',
 				width: 8,
 				regex: Regex.IP,
-				default: '127.0.0.1'
+				default: '127.0.0.1',
 			},
 			{
 				type: 'number',
@@ -174,7 +173,7 @@ export default class AbletonOSCInstance extends InstanceBase {
 				width: 4,
 				min: 1,
 				max: 65535,
-				default: 11000
+				default: 11000,
 			},
 			{
 				type: 'number',
@@ -183,8 +182,8 @@ export default class AbletonOSCInstance extends InstanceBase {
 				width: 4,
 				min: 1,
 				max: 65535,
-				default: 11001
-			}
+				default: 11001,
+			},
 		]
 	}
 
@@ -198,17 +197,17 @@ export default class AbletonOSCInstance extends InstanceBase {
 
 		if (this.config.host && this.config.port) {
 			this.oscPort = new osc.UDPPort({
-				localAddress: "0.0.0.0",
+				localAddress: '0.0.0.0',
 				localPort: this.config.receivePort,
 				remoteAddress: this.config.host,
 				remotePort: this.config.port,
-				metadata: true
+				metadata: true,
 			})
 
-			this.oscPort.on("ready", () => {
+			this.oscPort.on('ready', () => {
 				this.updateStatus(InstanceStatus.Ok)
 				this.log('info', 'OSC Ready')
-				
+
 				// The port was re-created (config change or reconnect): Live no longer knows where
 				// to push values, so replay every device parameter subscription
 				for (const key of this.activeParameterListeners) {
@@ -216,17 +215,17 @@ export default class AbletonOSCInstance extends InstanceBase {
 					this.sendOsc('/live/device/start_listen/parameter/value', [
 						{ type: 'i', value: track },
 						{ type: 'i', value: device },
-						{ type: 'i', value: parameter }
+						{ type: 'i', value: parameter },
 					])
 				}
 			})
 
-			this.oscPort.on("error", (err) => {
+			this.oscPort.on('error', (err) => {
 				this.updateStatus(InstanceStatus.ConnectionFailure, err.message)
 				this.log('error', 'OSC Error: ' + err.message)
 			})
 
-			this.oscPort.on("message", (oscMsg) => {
+			this.oscPort.on('message', (oscMsg) => {
 				this.processOscMessage(oscMsg)
 			})
 
@@ -263,9 +262,9 @@ export default class AbletonOSCInstance extends InstanceBase {
 			// Back to the level the fade started from
 			this.sendOsc('/live/track/set/volume', [
 				{ type: 'i', value: trackIndex },
-				{ type: 'f', value: activeFade.fromVolume }
+				{ type: 'f', value: activeFade.fromVolume },
 			])
-			
+
 			delete this.activeFades[fadeId]
 			this.log('info', `Fade Out cancelled on track ${trackIndex + 1} - clip fired, volume restored`)
 			return true
@@ -290,7 +289,7 @@ export default class AbletonOSCInstance extends InstanceBase {
 		if (existingFade && existingFade.interval) {
 			clearInterval(existingFade.interval)
 		}
-		
+
 		this.activeFades[id] = {
 			type: 'track',
 			subtype: 'toggle',
@@ -300,12 +299,10 @@ export default class AbletonOSCInstance extends InstanceBase {
 			startTime: Date.now(),
 			state: 'init',
 			onLevel: onLevel,
-			offLevel: offLevel
+			offLevel: offLevel,
 		}
 
-		this.sendOsc('/live/track/get/volume', [
-			{ type: 'i', value: track }
-		])
+		this.sendOsc('/live/track/get/volume', [{ type: 'i', value: track }])
 	}
 
 	/**
@@ -321,7 +318,7 @@ export default class AbletonOSCInstance extends InstanceBase {
 		fade.state = 'fading'
 
 		let fromVolume, toVolume
-		
+
 		if (fade.subtype === 'toggle') {
 			// Toggle fade: use explicit onLevel and offLevel
 			if (fade.direction === 'out') {
@@ -331,7 +328,7 @@ export default class AbletonOSCInstance extends InstanceBase {
 				fromVolume = fade.offLevel
 				toVolume = fade.onLevel
 			}
-			
+
 			// Calculate initial progress based on actual current volume
 			// Enables smooth transitions when interrupting a fade
 			const range = Math.abs(toVolume - fromVolume)
@@ -343,9 +340,12 @@ export default class AbletonOSCInstance extends InstanceBase {
 					currentProgress = (fromVolume - startValue) / (fromVolume - toVolume)
 				}
 				currentProgress = Math.min(1, Math.max(0, currentProgress))
-				fade.startTime -= (currentProgress * fade.duration)
-				
-				this.log('debug', `Fade ${id}: Starting from ${(startValue * 100).toFixed(1)}% (progress: ${(currentProgress * 100).toFixed(1)}%)`)
+				fade.startTime -= currentProgress * fade.duration
+
+				this.log(
+					'debug',
+					`Fade ${id}: Starting from ${(startValue * 100).toFixed(1)}% (progress: ${(currentProgress * 100).toFixed(1)}%)`,
+				)
 			}
 		} else {
 			// Standard Fade (clip gain, etc.)
@@ -357,10 +357,10 @@ export default class AbletonOSCInstance extends InstanceBase {
 				toVolume = startValue
 			}
 		}
-		
+
 		fade.fromVolume = fromVolume
 		fade.toVolume = toVolume
-		
+
 		// A standard fade in must start from silence, so drop the level before the clip is fired
 		// (firing first would let the first frames through at full level)
 		if (fade.direction === 'in' && fade.subtype !== 'toggle') {
@@ -368,30 +368,30 @@ export default class AbletonOSCInstance extends InstanceBase {
 				this.sendOsc('/live/clip/set/gain', [
 					{ type: 'i', value: fade.track },
 					{ type: 'i', value: fade.clip },
-					{ type: 'f', value: 0.0 }
+					{ type: 'f', value: 0.0 },
 				])
 				this.sendOsc('/live/clip/fire', [
 					{ type: 'i', value: fade.track },
-					{ type: 'i', value: fade.clip }
+					{ type: 'i', value: fade.clip },
 				])
 			} else if (fade.type === 'track') {
 				this.sendOsc('/live/track/set/volume', [
 					{ type: 'i', value: fade.track },
-					{ type: 'f', value: 0.0 }
+					{ type: 'f', value: 0.0 },
 				])
 			}
 		}
 
 		// Interval for updates (30ms is smooth enough while reducing OSC traffic)
 		const intervalTime = 30
-		
+
 		if (fade.interval) clearInterval(fade.interval)
 
 		fade.interval = setInterval(() => {
 			const now = Date.now()
 			const elapsed = now - fade.startTime
 			const progress = Math.min(elapsed / fade.duration, 1.0)
-			
+
 			let newValue
 
 			if (fade.subtype === 'toggle') {
@@ -420,12 +420,12 @@ export default class AbletonOSCInstance extends InstanceBase {
 			if (progress >= 1.0) {
 				// Finished
 				clearInterval(fade.interval)
-				
+
 				if (fade.type === 'clip') {
 					if (fade.direction === 'out') {
 						this.sendOsc('/live/clip/stop', [
 							{ type: 'i', value: fade.track },
-							{ type: 'i', value: fade.clip }
+							{ type: 'i', value: fade.clip },
 						])
 						// Restore gain for clips, slightly delayed so Live has time to actually
 						// stop the clip first - otherwise the gain jumps back up before playback
@@ -434,14 +434,14 @@ export default class AbletonOSCInstance extends InstanceBase {
 							this.sendOsc('/live/clip/set/gain', [
 								{ type: 'i', value: fade.track },
 								{ type: 'i', value: fade.clip },
-								{ type: 'f', value: fade.fromVolume }
+								{ type: 'f', value: fade.fromVolume },
 							])
 						}, this.fadeStopRestoreDelay)
 					} else {
 						this.sendOsc('/live/clip/set/gain', [
 							{ type: 'i', value: fade.track },
 							{ type: 'i', value: fade.clip },
-							{ type: 'f', value: fade.toVolume }
+							{ type: 'f', value: fade.toVolume },
 						])
 					}
 				} else if (fade.type === 'track') {
@@ -449,34 +449,32 @@ export default class AbletonOSCInstance extends InstanceBase {
 						// Toggle fade: set to exact target level
 						this.sendOsc('/live/track/set/volume', [
 							{ type: 'i', value: fade.track },
-							{ type: 'f', value: fade.toVolume }
+							{ type: 'f', value: fade.toVolume },
 						])
 					} else {
 						// Standard track fade
 						if (fade.direction === 'out') {
 							// Stop clips first
-							this.sendOsc('/live/track/stop_all_clips', [
-								{ type: 'i', value: fade.track }
-							])
+							this.sendOsc('/live/track/stop_all_clips', [{ type: 'i', value: fade.track }])
 							// Restore volume slightly delayed so the clips actually stop before
 							// the fader jumps back up - otherwise the volume rises before playback
 							// stops and produces an audible "pop"
 							setTimeout(() => {
 								this.sendOsc('/live/track/set/volume', [
 									{ type: 'i', value: fade.track },
-									{ type: 'f', value: fade.fromVolume }
+									{ type: 'f', value: fade.fromVolume },
 								])
 							}, this.fadeStopRestoreDelay)
 						} else {
 							// Fade in: ensure we hit target exactly
 							this.sendOsc('/live/track/set/volume', [
 								{ type: 'i', value: fade.track },
-								{ type: 'f', value: fade.toVolume }
+								{ type: 'f', value: fade.toVolume },
 							])
 						}
 					}
 				}
-				
+
 				delete this.activeFades[id]
 			} else {
 				// Send intermediate value
@@ -484,12 +482,12 @@ export default class AbletonOSCInstance extends InstanceBase {
 					this.sendOsc('/live/clip/set/gain', [
 						{ type: 'i', value: fade.track },
 						{ type: 'i', value: fade.clip },
-						{ type: 'f', value: newValue }
+						{ type: 'f', value: newValue },
 					])
 				} else if (fade.type === 'track') {
 					this.sendOsc('/live/track/set/volume', [
 						{ type: 'i', value: fade.track },
-						{ type: 'f', value: newValue }
+						{ type: 'f', value: newValue },
 					])
 				}
 			}
@@ -512,418 +510,399 @@ export default class AbletonOSCInstance extends InstanceBase {
 			}
 
 			if (address === '/live/clip/get/gain') {
-			// args: [track, clip, gain]
-			const track = args[0].value
-			const clip = args[1].value
-			const gain = args[2].value
-			
-			const id = `clip_${track}_${clip}`
-			if (this.activeFades[id] && this.activeFades[id].state === 'init') {
-				this.startFade(id, gain)
-			}
+				// args: [track, clip, gain]
+				const track = args[0].value
+				const clip = args[1].value
+				const gain = args[2].value
 
-		} else if (address === '/live/track/get/volume') {
-			// args: [track, volume]
-			const track = args[0].value
-			const volume = args[1].value
-
-			// Keep the volume gauge variable current (this also fires continuously via start_listen)
-			this.setVariableValues({ [`track_volume_${track + 1}`]: volume.toFixed(3) })
-
-			const id = `track_${track}`
-			if (this.activeFades[id] && this.activeFades[id].state === 'init') {
-				this.startFade(id, volume)
-			}
-
-		} else if (address === '/live/clip/get/name') {
-			// args: [track, clip, name]
-			const track = args[0].value + 1
-			const clip = args[1].value + 1
-			const name = args[2].value
-			
-			const varId = `clip_name_${track}_${clip}`
-
-			// Clips beyond the 8x8 default grid have no definition yet, create it on the fly
-			this.checkVariableDefinition(varId, `Clip Name ${track}-${clip}`)
-			this.setVariableValues({ [varId]: name })
-			
-			// Store for dropdowns
-			this.clipNames[`${track}_${clip}`] = name
-			
-			// Update actions to refresh clip choices (debounced)
-			this.scheduleUiUpdate()
-
-		} else if (address === '/live/clip/get/color') {
-			// args: [track, clip, color]
-			const track = args[0].value + 1
-			const clip = args[1].value + 1
-			const color = args[2].value
-			this.clipColors[`${track}_${clip}`] = color
-			this.checkFeedbacks('clip_color')
-
-		} else if (address === '/live/track/get/playing_slot_index') {
-			// args: [track, clip_index]
-			const trackIndex = args[0].value  // 0-based
-			const track = trackIndex + 1      // 1-based for display
-			const playingClipIndex = args[1].value // 0-based index of playing clip, or -1 if none
-			
-			// A clip starting playback cancels any fade out still running on this track
-			if (playingClipIndex >= 0) {
-				this.cancelFadeOutOnTrack(trackIndex)
-			}
-
-			// A single message describes the whole track: at most one slot plays at a time,
-			// so refresh the playing state of every scene on that track
-			for (let s = 1; s <= this.numScenes; s++) {
-				this.clipPlaying[`${track}_${s}`] = (s - 1) === playingClipIndex
-			}
-
-			this.checkFeedbacks('clip_playing')
-
-		} else if (address === '/live/track/get/name') {
-			// args: [track, name]
-			const track = args[0].value + 1
-			const name = args[1].value
-			
-			const varId = `track_name_${track}`
-			this.checkVariableDefinition(varId, `Track Name ${track}`)
-			this.setVariableValues({ [varId]: name })
-
-		} else if (address === '/live/clip_slot/get/has_clip') {
-			// args: [track, clip, has_clip]
-			const track = args[0].value
-			const clip = args[1].value
-			const hasClip = args[2].value === 1 || args[2].value === true
-
-			this.clipSlotHasClip[`${track + 1}_${clip + 1}`] = hasClip
-
-			// Only request clip info if there's actually a clip
-			if (hasClip) {
-				this.sendOsc('/live/clip/get/name', [
-					{ type: 'i', value: track },
-					{ type: 'i', value: clip }
-				])
-				this.sendOsc('/live/clip/get/color', [
-					{ type: 'i', value: track },
-					{ type: 'i', value: clip }
-				])
-			}
-
-		// ============================================================
-		// CLIP LOOP, MARKER & WARPING HANDLERS
-		// ============================================================
-		} else if (address === '/live/clip/get/playing_position') {
-			// args: [track, clip, position]
-			const track = args[0].value
-			const clip = args[1].value
-			const position = args[2].value
-			
-			// Check if we have a pending loop/marker set operation
-			if (this.pendingLoopSet && 
-				this.pendingLoopSet.track === track && 
-				this.pendingLoopSet.clip === clip) {
-				
-				const setType = this.pendingLoopSet.type
-				let oscAddress = ''
-				
-				switch (setType) {
-					case 'loop_start':
-						oscAddress = '/live/clip/set/loop_start'
-						break
-					case 'loop_end':
-						oscAddress = '/live/clip/set/loop_end'
-						break
-					case 'start_marker':
-						oscAddress = '/live/clip/set/start_marker'
-						break
-					case 'end_marker':
-						oscAddress = '/live/clip/set/end_marker'
-						break
+				const id = `clip_${track}_${clip}`
+				if (this.activeFades[id] && this.activeFades[id].state === 'init') {
+					this.startFade(id, gain)
 				}
-				
-				if (oscAddress) {
-					this.sendOsc(oscAddress, [
+			} else if (address === '/live/track/get/volume') {
+				// args: [track, volume]
+				const track = args[0].value
+				const volume = args[1].value
+
+				// Keep the volume gauge variable current (this also fires continuously via start_listen)
+				this.setVariableValues({ [`track_volume_${track + 1}`]: volume.toFixed(3) })
+
+				const id = `track_${track}`
+				if (this.activeFades[id] && this.activeFades[id].state === 'init') {
+					this.startFade(id, volume)
+				}
+			} else if (address === '/live/clip/get/name') {
+				// args: [track, clip, name]
+				const track = args[0].value + 1
+				const clip = args[1].value + 1
+				const name = args[2].value
+
+				const varId = `clip_name_${track}_${clip}`
+
+				// Clips beyond the 8x8 default grid have no definition yet, create it on the fly
+				this.checkVariableDefinition(varId, `Clip Name ${track}-${clip}`)
+				this.setVariableValues({ [varId]: name })
+
+				// Store for dropdowns
+				this.clipNames[`${track}_${clip}`] = name
+
+				// Update actions to refresh clip choices (debounced)
+				this.scheduleUiUpdate()
+			} else if (address === '/live/clip/get/color') {
+				// args: [track, clip, color]
+				const track = args[0].value + 1
+				const clip = args[1].value + 1
+				const color = args[2].value
+				this.clipColors[`${track}_${clip}`] = color
+				this.checkFeedbacks('clip_color')
+			} else if (address === '/live/track/get/playing_slot_index') {
+				// args: [track, clip_index]
+				const trackIndex = args[0].value // 0-based
+				const track = trackIndex + 1 // 1-based for display
+				const playingClipIndex = args[1].value // 0-based index of playing clip, or -1 if none
+
+				// A clip starting playback cancels any fade out still running on this track
+				if (playingClipIndex >= 0) {
+					this.cancelFadeOutOnTrack(trackIndex)
+				}
+
+				// A single message describes the whole track: at most one slot plays at a time,
+				// so refresh the playing state of every scene on that track
+				for (let s = 1; s <= this.numScenes; s++) {
+					this.clipPlaying[`${track}_${s}`] = s - 1 === playingClipIndex
+				}
+
+				this.checkFeedbacks('clip_playing')
+			} else if (address === '/live/track/get/name') {
+				// args: [track, name]
+				const track = args[0].value + 1
+				const name = args[1].value
+
+				const varId = `track_name_${track}`
+				this.checkVariableDefinition(varId, `Track Name ${track}`)
+				this.setVariableValues({ [varId]: name })
+			} else if (address === '/live/clip_slot/get/has_clip') {
+				// args: [track, clip, has_clip]
+				const track = args[0].value
+				const clip = args[1].value
+				const hasClip = args[2].value === 1 || args[2].value === true
+
+				this.clipSlotHasClip[`${track + 1}_${clip + 1}`] = hasClip
+
+				// Only request clip info if there's actually a clip
+				if (hasClip) {
+					this.sendOsc('/live/clip/get/name', [
 						{ type: 'i', value: track },
 						{ type: 'i', value: clip },
-						{ type: 'f', value: position }
 					])
-					this.log('info', `Set ${setType} to ${position.toFixed(2)} beats for clip ${track + 1}_${clip + 1}`)
+					this.sendOsc('/live/clip/get/color', [
+						{ type: 'i', value: track },
+						{ type: 'i', value: clip },
+					])
 				}
-				
-				this.pendingLoopSet = null
-			}
-			
-			// Update variable
-			const varId = `clip_position_${track + 1}_${clip + 1}`
-			this.checkVariableDefinition(varId, `Clip Position ${track + 1}-${clip + 1}`)
-			this.setVariableValues({ [varId]: position.toFixed(2) })
 
-		} else if (address === '/live/clip/get/loop_start') {
-			// args: [track, clip, loop_start]
-			const track = args[0].value + 1
-			const clip = args[1].value + 1
-			const loopStart = args[2].value
-			
-			const varId = `clip_loop_start_${track}_${clip}`
-			this.checkVariableDefinition(varId, `Clip Loop Start ${track}-${clip}`)
-			this.setVariableValues({ [varId]: loopStart.toFixed(2) })
+				// ============================================================
+				// CLIP LOOP, MARKER & WARPING HANDLERS
+				// ============================================================
+			} else if (address === '/live/clip/get/playing_position') {
+				// args: [track, clip, position]
+				const track = args[0].value
+				const clip = args[1].value
+				const position = args[2].value
 
-		} else if (address === '/live/clip/get/loop_end') {
-			// args: [track, clip, loop_end]
-			const track = args[0].value + 1
-			const clip = args[1].value + 1
-			const loopEnd = args[2].value
-			
-			const varId = `clip_loop_end_${track}_${clip}`
-			this.checkVariableDefinition(varId, `Clip Loop End ${track}-${clip}`)
-			this.setVariableValues({ [varId]: loopEnd.toFixed(2) })
+				// Check if we have a pending loop/marker set operation
+				if (this.pendingLoopSet && this.pendingLoopSet.track === track && this.pendingLoopSet.clip === clip) {
+					const setType = this.pendingLoopSet.type
+					let oscAddress = ''
 
-		} else if (address === '/live/clip/get/start_marker') {
-			// args: [track, clip, start_marker]
-			const track = args[0].value + 1
-			const clip = args[1].value + 1
-			const startMarker = args[2].value
-			
-			const varId = `clip_start_marker_${track}_${clip}`
-			this.checkVariableDefinition(varId, `Clip Start Marker ${track}-${clip}`)
-			this.setVariableValues({ [varId]: startMarker.toFixed(2) })
+					switch (setType) {
+						case 'loop_start':
+							oscAddress = '/live/clip/set/loop_start'
+							break
+						case 'loop_end':
+							oscAddress = '/live/clip/set/loop_end'
+							break
+						case 'start_marker':
+							oscAddress = '/live/clip/set/start_marker'
+							break
+						case 'end_marker':
+							oscAddress = '/live/clip/set/end_marker'
+							break
+					}
 
-		} else if (address === '/live/clip/get/end_marker') {
-			// args: [track, clip, end_marker]
-			const track = args[0].value + 1
-			const clip = args[1].value + 1
-			const endMarker = args[2].value
-			
-			const varId = `clip_end_marker_${track}_${clip}`
-			this.checkVariableDefinition(varId, `Clip End Marker ${track}-${clip}`)
-			this.setVariableValues({ [varId]: endMarker.toFixed(2) })
+					if (oscAddress) {
+						this.sendOsc(oscAddress, [
+							{ type: 'i', value: track },
+							{ type: 'i', value: clip },
+							{ type: 'f', value: position },
+						])
+						this.log('info', `Set ${setType} to ${position.toFixed(2)} beats for clip ${track + 1}_${clip + 1}`)
+					}
 
-		} else if (address === '/live/clip/get/warping') {
-			// args: [track, clip, warping]
-			const track = args[0].value
-			const clip = args[1].value
-			const warping = args[2].value === 1 || args[2].value === true
-			
-			const varId = `clip_warping_${track + 1}_${clip + 1}`
-			this.checkVariableDefinition(varId, `Clip Warping ${track + 1}-${clip + 1}`)
-			
-			// Check if we have a pending toggle operation
-			if (this.pendingWarpingToggle && 
-				this.pendingWarpingToggle.track === track && 
-				this.pendingWarpingToggle.clip === clip) {
-				
-				// Toggle the current state and update variable immediately
-				const newState = !warping
-				this.sendOsc('/live/clip/set/warping', [
-					{ type: 'i', value: track },
-					{ type: 'i', value: clip },
-					{ type: 'i', value: newState ? 1 : 0 }
-				])
-				this.setVariableValues({ [varId]: newState ? 'On' : 'Off' })
-				this.pendingWarpingToggle = null
-			} else {
-				// Normal update from GET request
-				this.setVariableValues({ [varId]: warping ? 'On' : 'Off' })
-			}
-			
-			this.checkFeedbacks('clip_warping')
+					this.pendingLoopSet = null
+				}
 
-		} else if (address === '/live/clip/get/looping') {
-			// args: [track, clip, looping]
-			const track = args[0].value
-			const clip = args[1].value
-			const looping = args[2].value === 1 || args[2].value === true
-			
-			const varId = `clip_looping_${track + 1}_${clip + 1}`
-			this.checkVariableDefinition(varId, `Clip Looping ${track + 1}-${clip + 1}`)
-			
-			// Check if we have a pending toggle operation
-			if (this.pendingLoopingToggle && 
-				this.pendingLoopingToggle.track === track && 
-				this.pendingLoopingToggle.clip === clip) {
-				
-				// Toggle the current state and update variable immediately
-				const newState = !looping
-				this.sendOsc('/live/clip/set/looping', [
-					{ type: 'i', value: track },
-					{ type: 'i', value: clip },
-					{ type: 'i', value: newState ? 1 : 0 }
-				])
-				this.setVariableValues({ [varId]: newState ? 'On' : 'Off' })
-				this.pendingLoopingToggle = null
-			} else {
-				// Normal update from GET request
-				this.setVariableValues({ [varId]: looping ? 'On' : 'Off' })
-			}
-			
-			this.checkFeedbacks('clip_looping')
+				// Update variable
+				const varId = `clip_position_${track + 1}_${clip + 1}`
+				this.checkVariableDefinition(varId, `Clip Position ${track + 1}-${clip + 1}`)
+				this.setVariableValues({ [varId]: position.toFixed(2) })
+			} else if (address === '/live/clip/get/loop_start') {
+				// args: [track, clip, loop_start]
+				const track = args[0].value + 1
+				const clip = args[1].value + 1
+				const loopStart = args[2].value
 
-		} else if (address === '/live/track/get/mute') {
-			// args: [track, mute]
-			const track = args[0].value + 1
-			// Live sends either an int (0/1) or a bool depending on the message source
-			const mute = args[1].value === 1 || args[1].value === true
+				const varId = `clip_loop_start_${track}_${clip}`
+				this.checkVariableDefinition(varId, `Clip Loop Start ${track}-${clip}`)
+				this.setVariableValues({ [varId]: loopStart.toFixed(2) })
+			} else if (address === '/live/clip/get/loop_end') {
+				// args: [track, clip, loop_end]
+				const track = args[0].value + 1
+				const clip = args[1].value + 1
+				const loopEnd = args[2].value
 
-			this.trackMutes[track] = mute
-			this.setVariableValues({ [`track_mute_${track}`]: mute ? 1 : 0 })
-			this.checkFeedbacks('track_mute')
+				const varId = `clip_loop_end_${track}_${clip}`
+				this.checkVariableDefinition(varId, `Clip Loop End ${track}-${clip}`)
+				this.setVariableValues({ [varId]: loopEnd.toFixed(2) })
+			} else if (address === '/live/clip/get/start_marker') {
+				// args: [track, clip, start_marker]
+				const track = args[0].value + 1
+				const clip = args[1].value + 1
+				const startMarker = args[2].value
 
-		} else if (address === '/live/device/get/parameter/value') {
-			// args: [track, device, param, value]
-			const track = args[0].value + 1
-			const device = args[1].value + 1
-			const param = args[2].value + 1
-			const value = args[3].value
-			
-			this.deviceParameters[`${track}_${device}_${param}`] = value
-			this.checkFeedbacks('device_active')
+				const varId = `clip_start_marker_${track}_${clip}`
+				this.checkVariableDefinition(varId, `Clip Start Marker ${track}-${clip}`)
+				this.setVariableValues({ [varId]: startMarker.toFixed(2) })
+			} else if (address === '/live/clip/get/end_marker') {
+				// args: [track, clip, end_marker]
+				const track = args[0].value + 1
+				const clip = args[1].value + 1
+				const endMarker = args[2].value
 
-			const isSelected = this.selectedParameter !== null &&
-				this.selectedParameter.track === track &&
-				this.selectedParameter.device === device &&
-				this.selectedParameter.parameter === param
+				const varId = `clip_end_marker_${track}_${clip}`
+				this.checkVariableDefinition(varId, `Clip End Marker ${track}-${clip}`)
+				this.setVariableValues({ [varId]: endMarker.toFixed(2) })
+			} else if (address === '/live/clip/get/warping') {
+				// args: [track, clip, warping]
+				const track = args[0].value
+				const clip = args[1].value
+				const warping = args[2].value === 1 || args[2].value === true
 
-			// Keep the selected parameter state current, the Toggle action relies on it
-			if (isSelected) {
-				this.selectedParameter.lastValue = value
-				// Raw value is 0-1 normalized; expose as 0-100 for the ring gauge
-				this.setVariableValues({ selected_parameter_value_percent: (value * 100).toFixed(1) })
-			}
+				const varId = `clip_warping_${track + 1}_${clip + 1}`
+				this.checkVariableDefinition(varId, `Clip Warping ${track + 1}-${clip + 1}`)
 
-			// The numeric value carries no unit: ask for the display string Live shows in its UI
-			const varId = `device_param_${track}_${device}_${param}`
-			if (this.monitoredDeviceParameters.has(varId) || isSelected) {
-				this.sendOsc('/live/device/get/parameter/value_string', [
-					{ type: 'i', value: track - 1 },
-					{ type: 'i', value: device - 1 },
-					{ type: 'i', value: param - 1 }
-				])
-			}
+				// Check if we have a pending toggle operation
+				if (
+					this.pendingWarpingToggle &&
+					this.pendingWarpingToggle.track === track &&
+					this.pendingWarpingToggle.clip === clip
+				) {
+					// Toggle the current state and update variable immediately
+					const newState = !warping
+					this.sendOsc('/live/clip/set/warping', [
+						{ type: 'i', value: track },
+						{ type: 'i', value: clip },
+						{ type: 'i', value: newState ? 1 : 0 },
+					])
+					this.setVariableValues({ [varId]: newState ? 'On' : 'Off' })
+					this.pendingWarpingToggle = null
+				} else {
+					// Normal update from GET request
+					this.setVariableValues({ [varId]: warping ? 'On' : 'Off' })
+				}
 
-		} else if (address === '/live/device/get/parameter/value_string') {
-			// args: [track, device, param, value_string]
-			const track = args[0].value + 1
-			const device = args[1].value + 1
-			const param = args[2].value + 1
-			const value = args[3].value
-			
-			const varId = `device_param_${track}_${device}_${param}`
-			if (this.monitoredDeviceParameters.has(varId)) {
-				this.setVariableValues({ [varId]: value })
-			}
+				this.checkFeedbacks('clip_warping')
+			} else if (address === '/live/clip/get/looping') {
+				// args: [track, clip, looping]
+				const track = args[0].value
+				const clip = args[1].value
+				const looping = args[2].value === 1 || args[2].value === true
 
-			if (this.selectedParameter && 
-				this.selectedParameter.track === track && 
-				this.selectedParameter.device === device && 
-				this.selectedParameter.parameter === param) {
-				this.setVariableValues({ selected_parameter_value: value })
-			}
+				const varId = `clip_looping_${track + 1}_${clip + 1}`
+				this.checkVariableDefinition(varId, `Clip Looping ${track + 1}-${clip + 1}`)
 
-		} else if (address === '/live/track/get/output_meter_left' || address === '/live/track/get/output_meter_right') {
-			// args: [track, level]
-			const track = args[0].value + 1
-			const level = args[1].value
-			
-			if (address.endsWith('left')) {
-				this.trackLevelsLeft[track] = level
-			} else {
-				this.trackLevelsRight[track] = level
-			}
+				// Check if we have a pending toggle operation
+				if (
+					this.pendingLoopingToggle &&
+					this.pendingLoopingToggle.track === track &&
+					this.pendingLoopingToggle.clip === clip
+				) {
+					// Toggle the current state and update variable immediately
+					const newState = !looping
+					this.sendOsc('/live/clip/set/looping', [
+						{ type: 'i', value: track },
+						{ type: 'i', value: clip },
+						{ type: 'i', value: newState ? 1 : 0 },
+					])
+					this.setVariableValues({ [varId]: newState ? 'On' : 'Off' })
+					this.pendingLoopingToggle = null
+				} else {
+					// Normal update from GET request
+					this.setVariableValues({ [varId]: looping ? 'On' : 'Off' })
+				}
 
-			const left = this.trackLevelsLeft[track] || 0
-			const right = this.trackLevelsRight[track] || 0
-			const maxLevel = Math.max(left, right)
+				this.checkFeedbacks('clip_looping')
+			} else if (address === '/live/track/get/mute') {
+				// args: [track, mute]
+				const track = args[0].value + 1
+				// Live sends either an int (0/1) or a bool depending on the message source
+				const mute = args[1].value === 1 || args[1].value === true
 
-			this.trackLevels[track] = maxLevel
+				this.trackMutes[track] = mute
+				this.setVariableValues({ [`track_mute_${track}`]: mute ? 1 : 0 })
+				this.checkFeedbacks('track_mute')
+			} else if (address === '/live/device/get/parameter/value') {
+				// args: [track, device, param, value]
+				const track = args[0].value + 1
+				const device = args[1].value + 1
+				const param = args[2].value + 1
+				const value = args[3].value
 
-			const varId = `track_meter_${track}`
-			this.setVariableValues({
-				[varId]: maxLevel.toFixed(2),
-				[`track_meter_left_${track}`]: left.toFixed(2),
-				[`track_meter_right_${track}`]: right.toFixed(2)
-			})
+				this.deviceParameters[`${track}_${device}_${param}`] = value
+				this.checkFeedbacks('device_active')
 
-			// Throttle feedback updates to reduce CPU load
-			const now = Date.now()
-			if (now - this.lastMeterUpdate >= this.meterUpdateInterval) {
-				this.lastMeterUpdate = now
-				this.checkFeedbacks('track_meter')
-			}
+				const isSelected =
+					this.selectedParameter !== null &&
+					this.selectedParameter.track === track &&
+					this.selectedParameter.device === device &&
+					this.selectedParameter.parameter === param
 
-		} else if (address === '/live/song/get/num_tracks') {
-			this.numTracks = args[0].value
-			this.isScanning = true
-			this.log('info', `Scanning ${this.numTracks} tracks...`)
-			this.fetchClipInfo()
-		} else if (address === '/live/song/get/num_scenes') {
-			this.numScenes = args[0].value
-			this.isScanning = true
-			this.log('info', `Scanning ${this.numScenes} scenes...`)
-			this.fetchClipInfo()
+				// Keep the selected parameter state current, the Toggle action relies on it
+				if (isSelected) {
+					this.selectedParameter.lastValue = value
+					// Raw value is 0-1 normalized; expose as 0-100 for the ring gauge
+					this.setVariableValues({ selected_parameter_value_percent: (value * 100).toFixed(1) })
+				}
 
-		} else if (address === '/live/track/get/devices/name') {
-			// args: [track_id, name1, name2, ...]
-			const track = args[0].value + 1
-			const names = []
-			for (let i = 1; i < args.length; i++) {
-				names.push(args[i].value)
-			}
-			this.deviceNames[track] = names
-			
-			// Schedule UI update (batched) instead of immediate initPresets
-			this.scheduleUiUpdate()
+				// The numeric value carries no unit: ask for the display string Live shows in its UI
+				const varId = `device_param_${track}_${device}_${param}`
+				if (this.monitoredDeviceParameters.has(varId) || isSelected) {
+					this.sendOsc('/live/device/get/parameter/value_string', [
+						{ type: 'i', value: track - 1 },
+						{ type: 'i', value: device - 1 },
+						{ type: 'i', value: param - 1 },
+					])
+				}
+			} else if (address === '/live/device/get/parameter/value_string') {
+				// args: [track, device, param, value_string]
+				const track = args[0].value + 1
+				const device = args[1].value + 1
+				const param = args[2].value + 1
+				const value = args[3].value
 
-			// Parameter 0 is the Device On/Off switch: listen to it right away so the
-			// "Device (Plugin) Active" feedback lights up without any further user action
-			for (let i = 0; i < names.length; i++) {
-				this.listenToDeviceParameter(track - 1, i, 0)
-			}
+				const varId = `device_param_${track}_${device}_${param}`
+				if (this.monitoredDeviceParameters.has(varId)) {
+					this.setVariableValues({ [varId]: value })
+				}
 
-			// Fetch parameters for these devices
-			for (let i = 0; i < names.length; i++) {
-				this.sendOsc('/live/device/get/parameters/name', [
-					{ type: 'i', value: track - 1 },
-					{ type: 'i', value: i }
-				])
-			}
+				if (
+					this.selectedParameter &&
+					this.selectedParameter.track === track &&
+					this.selectedParameter.device === device &&
+					this.selectedParameter.parameter === param
+				) {
+					this.setVariableValues({ selected_parameter_value: value })
+				}
+			} else if (address === '/live/track/get/output_meter_left' || address === '/live/track/get/output_meter_right') {
+				// args: [track, level]
+				const track = args[0].value + 1
+				const level = args[1].value
 
-		} else if (address === '/live/device/get/parameters/name') {
-			// args: [track, device, name1, name2, ...]
-			const track = args[0].value + 1
-			const device = args[1].value + 1
-			
-			// Remove existing parameters for this device to avoid duplicates on re-scan
-			const prefix = `${track}_${device}_`
-			this.knownParameters = this.knownParameters.filter(p => !p.id.startsWith(prefix))
-			
-			const trackName = this.getVariableValue(`track_name_${track}`) || `Track ${track}`
-			const deviceName = (this.deviceNames[track] && this.deviceNames[track][device - 1]) || `Device ${device}`
+				if (address.endsWith('left')) {
+					this.trackLevelsLeft[track] = level
+				} else {
+					this.trackLevelsRight[track] = level
+				}
 
-			for (let i = 2; i < args.length; i++) {
-				const paramName = args[i].value
-				const paramIndex = i - 1 // args starts at 2 for param 1
-				
-				// Skip "Num" or empty names if any
-				if (!paramName) continue
+				const left = this.trackLevelsLeft[track] || 0
+				const right = this.trackLevelsRight[track] || 0
+				const maxLevel = Math.max(left, right)
 
-				this.knownParameters.push({
-					id: `${track}_${device}_${paramIndex}`,
-					label: `${trackName} > ${deviceName} > ${paramName}`
+				this.trackLevels[track] = maxLevel
+
+				const varId = `track_meter_${track}`
+				this.setVariableValues({
+					[varId]: maxLevel.toFixed(2),
+					[`track_meter_left_${track}`]: left.toFixed(2),
+					[`track_meter_right_${track}`]: right.toFixed(2),
 				})
+
+				// Throttle feedback updates to reduce CPU load
+				const now = Date.now()
+				if (now - this.lastMeterUpdate >= this.meterUpdateInterval) {
+					this.lastMeterUpdate = now
+					this.checkFeedbacks('track_meter')
+				}
+			} else if (address === '/live/song/get/num_tracks') {
+				this.numTracks = args[0].value
+				this.isScanning = true
+				this.log('info', `Scanning ${this.numTracks} tracks...`)
+				this.fetchClipInfo()
+			} else if (address === '/live/song/get/num_scenes') {
+				this.numScenes = args[0].value
+				this.isScanning = true
+				this.log('info', `Scanning ${this.numScenes} scenes...`)
+				this.fetchClipInfo()
+			} else if (address === '/live/track/get/devices/name') {
+				// args: [track_id, name1, name2, ...]
+				const track = args[0].value + 1
+				const names = []
+				for (let i = 1; i < args.length; i++) {
+					names.push(args[i].value)
+				}
+				this.deviceNames[track] = names
+
+				// Schedule UI update (batched) instead of immediate initPresets
+				this.scheduleUiUpdate()
+
+				// Parameter 0 is the Device On/Off switch: listen to it right away so the
+				// "Device (Plugin) Active" feedback lights up without any further user action
+				for (let i = 0; i < names.length; i++) {
+					this.listenToDeviceParameter(track - 1, i, 0)
+				}
+
+				// Fetch parameters for these devices
+				for (let i = 0; i < names.length; i++) {
+					this.sendOsc('/live/device/get/parameters/name', [
+						{ type: 'i', value: track - 1 },
+						{ type: 'i', value: i },
+					])
+				}
+			} else if (address === '/live/device/get/parameters/name') {
+				// args: [track, device, name1, name2, ...]
+				const track = args[0].value + 1
+				const device = args[1].value + 1
+
+				// Remove existing parameters for this device to avoid duplicates on re-scan
+				const prefix = `${track}_${device}_`
+				this.knownParameters = this.knownParameters.filter((p) => !p.id.startsWith(prefix))
+
+				const trackName = this.getVariableValue(`track_name_${track}`) || `Track ${track}`
+				const deviceName = (this.deviceNames[track] && this.deviceNames[track][device - 1]) || `Device ${device}`
+
+				for (let i = 2; i < args.length; i++) {
+					const paramName = args[i].value
+					const paramIndex = i - 1 // args starts at 2 for param 1
+
+					// Skip "Num" or empty names if any
+					if (!paramName) continue
+
+					this.knownParameters.push({
+						id: `${track}_${device}_${paramIndex}`,
+						label: `${trackName} > ${deviceName} > ${paramName}`,
+					})
+				}
+
+				// Update actions to refresh the dropdown (debounced)
+				this.scheduleUiUpdate()
+			} else if (address === '/live/error') {
+				// AbletonOSC error response - log but don't create variables
+				const errorMsg = args.length > 0 ? args[0].value : 'Unknown error'
+				this.log('warn', `AbletonOSC Error: ${errorMsg}`)
+			} else {
+				// Generic handler for unhandled OSC responses
+				this.handleRawOscResponse(address, args)
 			}
-			
-			// Update actions to refresh the dropdown (debounced)
-			this.scheduleUiUpdate()
-
-		} else if (address === '/live/error') {
-			// AbletonOSC error response - log but don't create variables
-			const errorMsg = args.length > 0 ? args[0].value : 'Unknown error'
-			this.log('warn', `AbletonOSC Error: ${errorMsg}`)
-
-		} else {
-			// Generic handler for unhandled OSC responses
-			this.handleRawOscResponse(address, args)
-		}
 		} catch (e) {
 			this.log('error', `Error processing OSC message: ${e.message}`)
 		}
@@ -937,32 +916,32 @@ export default class AbletonOSCInstance extends InstanceBase {
 	 * Handle unrecognized OSC responses and store them as variables
 	 */
 	handleRawOscResponse(address, args) {
-		const varName = 'raw_' + address.replace(/^\//,'').replace(/\//g, '_')
-		
+		const varName = 'raw_' + address.replace(/^\//, '').replace(/\//g, '_')
+
 		let displayValue = ''
 		if (args.length === 0) {
 			displayValue = '(no value)'
 		} else if (args.length === 1) {
 			displayValue = String(args[0].value)
 		} else {
-			displayValue = args.map(a => String(a.value)).join(', ')
+			displayValue = args.map((a) => String(a.value)).join(', ')
 		}
-		
-		const fullValue = args.map(a => `${a.type}:${a.value}`).join(', ')
-		
+
+		const fullValue = args.map((a) => `${a.type}:${a.value}`).join(', ')
+
 		this.checkVariableDefinition(varName, `Raw: ${address}`)
 		this.checkVariableDefinition(varName + '_full', `Raw Full: ${address}`)
-		
+
 		this.setVariableValues({
 			[varName]: displayValue,
-			[varName + '_full']: fullValue
+			[varName + '_full']: fullValue,
 		})
-		
+
 		this.setVariableValues({
-			'last_raw_response': displayValue,
-			'last_raw_address': address
+			last_raw_response: displayValue,
+			last_raw_address: address,
 		})
-		
+
 		this.log('debug', `Raw OSC Response: ${address} = ${displayValue}`)
 	}
 
@@ -977,52 +956,38 @@ export default class AbletonOSCInstance extends InstanceBase {
 			// Limit to avoid flooding if project is huge
 			const maxTracks = 64
 			const maxScenes = 64
-			
+
 			const tCount = Math.min(this.numTracks, maxTracks)
 			const sCount = Math.min(this.numScenes, maxScenes)
 
 			this.log('info', `Fetching info for ${tCount} tracks and ${sCount} scenes`)
-			
+
 			let msgCount = 0
 
 			for (let t = 0; t < tCount; t++) {
 				// Request Track Name
-				this.sendOsc('/live/track/get/name', [
-					{ type: 'i', value: t }
-				])
+				this.sendOsc('/live/track/get/name', [{ type: 'i', value: t }])
 				msgCount++
 
 				// Request Device Names
-				this.sendOsc('/live/track/get/devices/name', [
-					{ type: 'i', value: t }
-				])
+				this.sendOsc('/live/track/get/devices/name', [{ type: 'i', value: t }])
 				msgCount++
 
 				// Start listening to meters
-				this.sendOsc('/live/track/start_listen/output_meter_left', [
-					{ type: 'i', value: t }
-				])
-				this.sendOsc('/live/track/start_listen/output_meter_right', [
-					{ type: 'i', value: t }
-				])
+				this.sendOsc('/live/track/start_listen/output_meter_left', [{ type: 'i', value: t }])
+				this.sendOsc('/live/track/start_listen/output_meter_right', [{ type: 'i', value: t }])
 				msgCount += 2
 
 				// Start listening to volume (for the volume gauge)
-				this.sendOsc('/live/track/start_listen/volume', [
-					{ type: 'i', value: t }
-				])
+				this.sendOsc('/live/track/start_listen/volume', [{ type: 'i', value: t }])
 				msgCount++
 
 				// Start listening to playing slot (much more efficient than listening to each clip)
-				this.sendOsc('/live/track/start_listen/playing_slot_index', [
-					{ type: 'i', value: t }
-				])
+				this.sendOsc('/live/track/start_listen/playing_slot_index', [{ type: 'i', value: t }])
 				msgCount++
 
 				// Start listening to mute
-				this.sendOsc('/live/track/start_listen/mute', [
-					{ type: 'i', value: t }
-				])
+				this.sendOsc('/live/track/start_listen/mute', [{ type: 'i', value: t }])
 				msgCount++
 
 				// Note: Device parameter listeners are set up when we receive the devices/name response
@@ -1039,12 +1004,12 @@ export default class AbletonOSCInstance extends InstanceBase {
 					// First check if the slot holds a clip (the response triggers the name/color fetch)
 					this.sendOsc('/live/clip_slot/get/has_clip', [
 						{ type: 'i', value: t },
-						{ type: 'i', value: s }
+						{ type: 'i', value: s },
 					])
 					msgCount++
 
 					if (msgCount >= 100) {
-						await new Promise(resolve => setTimeout(resolve, 10))
+						await new Promise((resolve) => setTimeout(resolve, 10))
 						msgCount = 0
 					}
 				}
@@ -1065,7 +1030,7 @@ export default class AbletonOSCInstance extends InstanceBase {
 			this.variableIds.add(id)
 			this.variableDefinitions[id] = { name: name }
 			this.variableDefinitionsDirty = true
-			
+
 			if (!this.variableDefinitionsTimer) {
 				this.variableDefinitionsTimer = setTimeout(() => {
 					if (this.variableDefinitionsDirty) {
@@ -1108,14 +1073,14 @@ export default class AbletonOSCInstance extends InstanceBase {
 			if (names && Array.isArray(names)) {
 				names.forEach((name, index) => {
 					const deviceIndex = index + 1
-					this.deviceChoices.push({ 
-						id: `${trackId}_${deviceIndex}`, 
-						label: `T${trackId} > D${deviceIndex}: ${name}` 
+					this.deviceChoices.push({
+						id: `${trackId}_${deviceIndex}`,
+						label: `T${trackId} > D${deviceIndex}: ${name}`,
 					})
 				})
 			}
 		}
-		
+
 		// Fallback if empty
 		if (this.trackChoices.length === 0) this.trackChoices.push({ id: 1, label: 'Track 1' })
 		if (this.deviceChoices.length === 0) this.deviceChoices.push({ id: '1_1', label: 'T1 > D1' })
@@ -1168,7 +1133,7 @@ export default class AbletonOSCInstance extends InstanceBase {
 		this.sendOsc('/live/device/start_listen/parameter/value', [
 			{ type: 'i', value: track },
 			{ type: 'i', value: device },
-			{ type: 'i', value: parameter }
+			{ type: 'i', value: parameter },
 		])
 	}
 
@@ -1188,7 +1153,7 @@ export default class AbletonOSCInstance extends InstanceBase {
 		if (this.oscPort) {
 			this.oscPort.send({
 				address: address,
-				args: args
+				args: args,
 			})
 		}
 	}
@@ -1201,24 +1166,24 @@ export default class AbletonOSCInstance extends InstanceBase {
 		if (this.updateDebounceTimer) {
 			clearTimeout(this.updateDebounceTimer)
 		}
-		
+
 		const delay = this.isScanning ? 1000 : 250
-		
+
 		this.updateDebounceTimer = setTimeout(() => {
 			const startTime = Date.now()
-			
+
 			this.initActions()
 			this.initFeedbacks()
 			this.initPresets()
-			
+
 			const elapsed = Date.now() - startTime
 			this.log('debug', `UI update completed in ${elapsed}ms`)
-			
+
 			if (this.isScanning) {
 				this.isScanning = false
 				this.log('info', `Scan complete. ${this.numTracks} tracks, ${this.numScenes} scenes.`)
 			}
-			
+
 			this.updateDebounceTimer = null
 		}, delay)
 	}

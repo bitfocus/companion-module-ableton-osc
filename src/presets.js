@@ -28,23 +28,29 @@ export async function UpdatePresets(self) {
 			id: 'bg',
 			name: 'Box',
 			opacity: 100,
-			x: 0, y: 0, width: 100, height: 100,
-			color: bgColor
+			x: 0,
+			y: 0,
+			width: 100,
+			height: 100,
+			color: bgColor,
 		},
 		{
 			type: 'text',
 			id: 'label',
 			name: 'Text',
 			opacity: 100,
-			x: 0, y: 0, width: 100, height: 100,
+			x: 0,
+			y: 0,
+			width: 100,
+			height: 100,
 			text: text,
 			fontsize: 30,
 			fontsizeAllowShrink: true,
 			color: textColor,
 			halign: 'center',
 			valign: 'center',
-			outlineColor: 0xff000000
-		}
+			outlineColor: 0xff000000,
+		},
 	]
 
 	// ============================================================
@@ -70,29 +76,37 @@ export async function UpdatePresets(self) {
 						down: [
 							{
 								actionId: 'fire_clip',
-								options: { clipId: `${t}_${s}` }
-							}
+								options: { clipId: `${t}_${s}` },
+							},
 						],
-						up: []
-					}
+						up: [],
+					},
 				],
 				feedbacks: [
 					{
 						feedbackId: 'clip_color',
 						options: { clipId: `${t}_${s}` },
 						styleOverrides: [
-							{ elementId: 'bg', elementProperty: 'color', override: { isExpression: false, value: 'bgcolor' } }
-						]
+							{ elementId: 'bg', elementProperty: 'color', override: { isExpression: false, value: 'bgcolor' } },
+						],
 					},
 					{
 						feedbackId: 'clip_playing',
 						options: { clipId: `${t}_${s}` },
 						styleOverrides: [
-							{ elementId: 'bg', elementProperty: 'color', override: { isExpression: false, value: combineRgb(0, 0, 0) } },
-							{ elementId: 'label', elementProperty: 'color', override: { isExpression: false, value: combineRgb(255, 255, 255) } }
-						]
-					}
-				]
+							{
+								elementId: 'bg',
+								elementProperty: 'color',
+								override: { isExpression: false, value: combineRgb(0, 0, 0) },
+							},
+							{
+								elementId: 'label',
+								elementProperty: 'color',
+								override: { isExpression: false, value: combineRgb(255, 255, 255) },
+							},
+						],
+					},
+				],
 			}
 		}
 	}
@@ -114,19 +128,23 @@ export async function UpdatePresets(self) {
 				type: 'layered',
 				category: `Clips / Stop / ${trackName}`,
 				name: `Stop ${clipName}`,
-				elements: boxTextElements(`⏹️\\n$(ableton:clip_name_${t}_${s})`, combineRgb(100, 0, 0), combineRgb(255, 255, 255)),
+				elements: boxTextElements(
+					`⏹️\\n$(ableton:clip_name_${t}_${s})`,
+					combineRgb(100, 0, 0),
+					combineRgb(255, 255, 255),
+				),
 				steps: [
 					{
 						down: [
 							{
 								actionId: 'stop_clip',
-								options: { clipId: `${t}_${s}` }
-							}
+								options: { clipId: `${t}_${s}` },
+							},
 						],
-						up: []
-					}
+						up: [],
+					},
 				],
-				feedbacks: []
+				feedbacks: [],
 			}
 		}
 	}
@@ -149,27 +167,31 @@ export async function UpdatePresets(self) {
 				type: 'layered',
 				category: `Clips / Fade / ${trackName}`,
 				name: `Fade In ${clipName}`,
-				elements: boxTextElements(`📈\\n$(ableton:clip_name_${t}_${s})`, combineRgb(0, 0, 0), combineRgb(255, 255, 255)),
+				elements: boxTextElements(
+					`📈\\n$(ableton:clip_name_${t}_${s})`,
+					combineRgb(0, 0, 0),
+					combineRgb(255, 255, 255),
+				),
 				steps: [
 					{
 						down: [
 							{
 								actionId: 'fade_fire_clip',
-								options: { clipId: `${t}_${s}`, duration: 1500 }
-							}
+								options: { clipId: `${t}_${s}`, duration: 1500 },
+							},
 						],
-						up: []
-					}
+						up: [],
+					},
 				],
 				feedbacks: [
 					{
 						feedbackId: 'clip_color',
 						options: { clipId: `${t}_${s}` },
 						styleOverrides: [
-							{ elementId: 'bg', elementProperty: 'color', override: { isExpression: false, value: 'bgcolor' } }
-						]
-					}
-				]
+							{ elementId: 'bg', elementProperty: 'color', override: { isExpression: false, value: 'bgcolor' } },
+						],
+					},
+				],
 			}
 
 			// Fade Out Clip
@@ -177,27 +199,31 @@ export async function UpdatePresets(self) {
 				type: 'layered',
 				category: `Clips / Fade / ${trackName}`,
 				name: `Fade Out ${clipName}`,
-				elements: boxTextElements(`📉\\n$(ableton:clip_name_${t}_${s})`, combineRgb(0, 0, 0), combineRgb(255, 255, 255)),
+				elements: boxTextElements(
+					`📉\\n$(ableton:clip_name_${t}_${s})`,
+					combineRgb(0, 0, 0),
+					combineRgb(255, 255, 255),
+				),
 				steps: [
 					{
 						down: [
 							{
 								actionId: 'fade_stop_clip',
-								options: { clipId: `${t}_${s}`, duration: 3500 }
-							}
+								options: { clipId: `${t}_${s}`, duration: 3500 },
+							},
 						],
-						up: []
-					}
+						up: [],
+					},
 				],
 				feedbacks: [
 					{
 						feedbackId: 'clip_color',
 						options: { clipId: `${t}_${s}` },
 						styleOverrides: [
-							{ elementId: 'bg', elementProperty: 'color', override: { isExpression: false, value: 'bgcolor' } }
-						]
-					}
-				]
+							{ elementId: 'bg', elementProperty: 'color', override: { isExpression: false, value: 'bgcolor' } },
+						],
+					},
+				],
 			}
 		}
 	}
@@ -222,19 +248,23 @@ export async function UpdatePresets(self) {
 			type: 'layered',
 			category: `Tracks / ${trackName}`,
 			name: `Stop All Clips`,
-			elements: boxTextElements(`⏹️ STOP\\n$(ableton:track_name_${t})`, combineRgb(128, 0, 0), combineRgb(255, 255, 255)),
+			elements: boxTextElements(
+				`⏹️ STOP\\n$(ableton:track_name_${t})`,
+				combineRgb(128, 0, 0),
+				combineRgb(255, 255, 255),
+			),
 			steps: [
 				{
 					down: [
 						{
 							actionId: 'stop_track',
-							options: { track: t }
-						}
+							options: { track: t },
+						},
 					],
-					up: []
-				}
+					up: [],
+				},
 			],
-			feedbacks: []
+			feedbacks: [],
 		}
 
 		// Mute + stereo VU-meter + volume fader, combined on a single button (native gauges,
@@ -249,15 +279,21 @@ export async function UpdatePresets(self) {
 					id: 'bg',
 					name: 'Box',
 					opacity: 100,
-					x: 0, y: 0, width: 100, height: 100,
-					color: combineRgb(0, 0, 0)
+					x: 0,
+					y: 0,
+					width: 100,
+					height: 100,
+					color: combineRgb(0, 0, 0),
 				},
 				{
 					type: 'gauge',
 					id: 'meter_left',
 					name: 'Track meter left',
 					opacity: 100,
-					x: 3, y: 4, width: 8, height: 92,
+					x: 3,
+					y: 4,
+					width: 8,
+					height: 92,
 					orientation: 'vertical',
 					min: 0,
 					max: 1,
@@ -265,7 +301,7 @@ export async function UpdatePresets(self) {
 					stops: [
 						{ value: 0, color: combineRgb(0, 200, 0), gradient: false },
 						{ value: 0.6, color: combineRgb(255, 255, 0), gradient: false },
-						{ value: 0.85, color: combineRgb(255, 0, 0), gradient: false }
+						{ value: 0.85, color: combineRgb(255, 0, 0), gradient: false },
 					],
 					roundedEnds: true,
 					fillEnabled: true,
@@ -275,14 +311,17 @@ export async function UpdatePresets(self) {
 					markerWidth: 15,
 					trackStyle: 'transparent',
 					trackAmount: 70,
-					trackWidth: 100
+					trackWidth: 100,
 				},
 				{
 					type: 'gauge',
 					id: 'meter_right',
 					name: 'Track meter right',
 					opacity: 100,
-					x: 12, y: 4, width: 8, height: 92,
+					x: 12,
+					y: 4,
+					width: 8,
+					height: 92,
 					orientation: 'vertical',
 					min: 0,
 					max: 1,
@@ -290,7 +329,7 @@ export async function UpdatePresets(self) {
 					stops: [
 						{ value: 0, color: combineRgb(0, 200, 0), gradient: false },
 						{ value: 0.6, color: combineRgb(255, 255, 0), gradient: false },
-						{ value: 0.85, color: combineRgb(255, 0, 0), gradient: false }
+						{ value: 0.85, color: combineRgb(255, 0, 0), gradient: false },
 					],
 					roundedEnds: true,
 					fillEnabled: true,
@@ -300,21 +339,22 @@ export async function UpdatePresets(self) {
 					markerWidth: 15,
 					trackStyle: 'transparent',
 					trackAmount: 70,
-					trackWidth: 100
+					trackWidth: 100,
 				},
 				{
 					type: 'gauge',
 					id: 'volume',
 					name: 'Track fader level',
 					opacity: 100,
-					x: 90, y: 4, width: 8, height: 92,
+					x: 90,
+					y: 4,
+					width: 8,
+					height: 92,
 					orientation: 'vertical',
 					min: 0,
 					max: 1,
 					value: { isExpression: true, value: `$(ableton:track_volume_${t})` },
-					stops: [
-						{ value: 0, color: combineRgb(0, 150, 255), gradient: false }
-					],
+					stops: [{ value: 0, color: combineRgb(0, 150, 255), gradient: false }],
 					roundedEnds: true,
 					fillEnabled: true,
 					multiColour: true,
@@ -323,33 +363,36 @@ export async function UpdatePresets(self) {
 					markerWidth: 15,
 					trackStyle: 'transparent',
 					trackAmount: 70,
-					trackWidth: 100
+					trackWidth: 100,
 				},
 				{
 					type: 'text',
 					id: 'label',
 					name: 'Track name',
 					opacity: 100,
-					x: 20, y: 0, width: 70, height: 100,
+					x: 20,
+					y: 0,
+					width: 70,
+					height: 100,
 					text: `$(ableton:track_name_${t})`,
 					fontsize: 30,
 					fontsizeAllowShrink: true,
 					color: combineRgb(255, 255, 255),
 					halign: 'center',
 					valign: 'center',
-					outlineColor: 0xff000000
-				}
+					outlineColor: 0xff000000,
+				},
 			],
 			steps: [
 				{
 					down: [
 						{
 							actionId: 'mute_track',
-							options: { track: t, mute: 'toggle' }
-						}
+							options: { track: t, mute: 'toggle' },
+						},
 					],
-					up: []
-				}
+					up: [],
+				},
 			],
 			feedbacks: [
 				{
@@ -359,11 +402,11 @@ export async function UpdatePresets(self) {
 						{
 							elementId: 'bg',
 							elementProperty: 'color',
-							override: { isExpression: false, value: combineRgb(255, 0, 0) }
-						}
-					]
-				}
-			]
+							override: { isExpression: false, value: combineRgb(255, 0, 0) },
+						},
+					],
+				},
+			],
 		}
 
 		// Fade In Track
@@ -371,19 +414,23 @@ export async function UpdatePresets(self) {
 			type: 'layered',
 			category: `Tracks / ${trackName}`,
 			name: `Fade In`,
-			elements: boxTextElements(`📈 FADE IN\\n$(ableton:track_name_${t})`, combineRgb(0, 100, 0), combineRgb(255, 255, 255)),
+			elements: boxTextElements(
+				`📈 FADE IN\\n$(ableton:track_name_${t})`,
+				combineRgb(0, 100, 0),
+				combineRgb(255, 255, 255),
+			),
 			steps: [
 				{
 					down: [
 						{
 							actionId: 'fade_in_track',
-							options: { track: t, duration: 1500 }
-						}
+							options: { track: t, duration: 1500 },
+						},
 					],
-					up: []
-				}
+					up: [],
+				},
 			],
-			feedbacks: []
+			feedbacks: [],
 		}
 
 		// Fade Out Track
@@ -391,19 +438,23 @@ export async function UpdatePresets(self) {
 			type: 'layered',
 			category: `Tracks / ${trackName}`,
 			name: `Fade Out`,
-			elements: boxTextElements(`📉 FADE OUT\\n$(ableton:track_name_${t})`, combineRgb(100, 0, 0), combineRgb(255, 255, 255)),
+			elements: boxTextElements(
+				`📉 FADE OUT\\n$(ableton:track_name_${t})`,
+				combineRgb(100, 0, 0),
+				combineRgb(255, 255, 255),
+			),
 			steps: [
 				{
 					down: [
 						{
 							actionId: 'fade_stop_track',
-							options: { track: t, duration: 3500 }
-						}
+							options: { track: t, duration: 3500 },
+						},
 					],
-					up: []
-				}
+					up: [],
+				},
 			],
-			feedbacks: []
+			feedbacks: [],
 		}
 	}
 
@@ -423,7 +474,11 @@ export async function UpdatePresets(self) {
 					type: 'layered',
 					category: `Devices / Toggle / ${trackName}`,
 					name: deviceName,
-					elements: boxTextElements(`${deviceName}\\n$(ableton:track_name_${t})`, combineRgb(0, 0, 0), combineRgb(255, 255, 255)),
+					elements: boxTextElements(
+						`${deviceName}\\n$(ableton:track_name_${t})`,
+						combineRgb(0, 0, 0),
+						combineRgb(255, 255, 255),
+					),
 					steps: [
 						{
 							down: [
@@ -431,24 +486,32 @@ export async function UpdatePresets(self) {
 									actionId: 'device_toggle',
 									options: {
 										device: `${t}_${deviceIndex}`,
-										parameter: 1,  // Explicitly set parameter to 1 (Device On/Off)
-										state: 'toggle'
-									}
-								}
+										parameter: 1, // Explicitly set parameter to 1 (Device On/Off)
+										state: 'toggle',
+									},
+								},
 							],
-							up: []
-						}
+							up: [],
+						},
 					],
 					feedbacks: [
 						{
 							feedbackId: 'device_active',
 							options: { parameterId: `${t}_${deviceIndex}_1` },
 							styleOverrides: [
-								{ elementId: 'bg', elementProperty: 'color', override: { isExpression: false, value: combineRgb(0, 255, 0) } },
-								{ elementId: 'label', elementProperty: 'color', override: { isExpression: false, value: combineRgb(0, 0, 0) } }
-							]
-						}
-					]
+								{
+									elementId: 'bg',
+									elementProperty: 'color',
+									override: { isExpression: false, value: combineRgb(0, 255, 0) },
+								},
+								{
+									elementId: 'label',
+									elementProperty: 'color',
+									override: { isExpression: false, value: combineRgb(0, 0, 0) },
+								},
+							],
+						},
+					],
 				}
 			}
 		}
@@ -458,7 +521,7 @@ export async function UpdatePresets(self) {
 	// DEVICE PARAMS (organized by Track > Device)
 	// ============================================================
 	if (self.knownParameters && self.knownParameters.length > 0) {
-		self.knownParameters.forEach(param => {
+		self.knownParameters.forEach((param) => {
 			const parts = param.label.split(' > ')
 			const shortName = parts.length > 0 ? parts[parts.length - 1] : param.label
 
@@ -479,21 +542,25 @@ export async function UpdatePresets(self) {
 						down: [
 							{
 								actionId: 'select_device_parameter',
-								options: { parameterId: param.id }
-							}
+								options: { parameterId: param.id },
+							},
 						],
-						up: []
-					}
+						up: [],
+					},
 				],
 				feedbacks: [
 					{
 						feedbackId: 'selected_parameter_active',
 						options: { parameterId: param.id },
 						styleOverrides: [
-							{ elementId: 'bg', elementProperty: 'color', override: { isExpression: false, value: combineRgb(255, 165, 0) } }
-						]
-					}
-				]
+							{
+								elementId: 'bg',
+								elementProperty: 'color',
+								override: { isExpression: false, value: combineRgb(255, 165, 0) },
+							},
+						],
+					},
+				],
 			}
 		})
 	}
@@ -511,13 +578,13 @@ export async function UpdatePresets(self) {
 				down: [
 					{
 						actionId: 'step_selected_device_parameter',
-						options: { step: '-5' }
-					}
+						options: { step: '-5' },
+					},
 				],
-				up: []
-			}
+				up: [],
+			},
 		],
-		feedbacks: []
+		feedbacks: [],
 	}
 
 	presets['control_step_plus'] = {
@@ -530,13 +597,13 @@ export async function UpdatePresets(self) {
 				down: [
 					{
 						actionId: 'step_selected_device_parameter',
-						options: { step: '5' }
-					}
+						options: { step: '5' },
+					},
 				],
-				up: []
-			}
+				up: [],
+			},
 		],
-		feedbacks: []
+		feedbacks: [],
 	}
 
 	presets['control_on'] = {
@@ -549,13 +616,13 @@ export async function UpdatePresets(self) {
 				down: [
 					{
 						actionId: 'set_selected_device_parameter',
-						options: { value: '100' }
-					}
+						options: { value: '100' },
+					},
 				],
-				up: []
-			}
+				up: [],
+			},
 		],
-		feedbacks: []
+		feedbacks: [],
 	}
 
 	presets['control_off'] = {
@@ -568,13 +635,13 @@ export async function UpdatePresets(self) {
 				down: [
 					{
 						actionId: 'set_selected_device_parameter',
-						options: { value: '0' }
-					}
+						options: { value: '0' },
+					},
 				],
-				up: []
-			}
+				up: [],
+			},
 		],
-		feedbacks: []
+		feedbacks: [],
 	}
 
 	presets['control_toggle'] = {
@@ -587,13 +654,13 @@ export async function UpdatePresets(self) {
 				down: [
 					{
 						actionId: 'toggle_selected_device_parameter',
-						options: {}
-					}
+						options: {},
+					},
 				],
-				up: []
-			}
+				up: [],
+			},
 		],
-		feedbacks: []
+		feedbacks: [],
 	}
 
 	presets['control_value_display'] = {
@@ -606,15 +673,21 @@ export async function UpdatePresets(self) {
 				id: 'bg',
 				name: 'Box',
 				opacity: 100,
-				x: 0, y: 0, width: 100, height: 100,
-				color: combineRgb(192, 192, 255)
+				x: 0,
+				y: 0,
+				width: 100,
+				height: 100,
+				color: combineRgb(192, 192, 255),
 			},
 			{
 				type: 'gauge',
 				id: 'param_ring',
 				name: 'Gauge',
 				opacity: 100,
-				x: 10, y: 2, width: 80, height: 80,
+				x: 10,
+				y: 2,
+				width: 80,
+				height: 80,
 				orientation: 'ring',
 				min: 0,
 				max: 100,
@@ -622,9 +695,7 @@ export async function UpdatePresets(self) {
 				endAngle: 150,
 				ringWidth: 20,
 				value: { isExpression: true, value: '$(ableton:selected_parameter_value_percent)' },
-				stops: [
-					{ value: 0, color: combineRgb(64, 64, 200), gradient: false }
-				],
+				stops: [{ value: 0, color: combineRgb(64, 64, 200), gradient: false }],
 				roundedEnds: true,
 				fillEnabled: true,
 				multiColour: true,
@@ -633,39 +704,45 @@ export async function UpdatePresets(self) {
 				markerWidth: 10,
 				trackStyle: 'transparent',
 				trackAmount: 30,
-				trackWidth: 70
+				trackWidth: 70,
 			},
 			{
 				type: 'text',
 				id: 'label',
 				name: 'Value',
 				opacity: 100,
-				x: 22, y: 14, width: 56, height: 56,
+				x: 22,
+				y: 14,
+				width: 56,
+				height: 56,
 				text: '$(ableton:selected_parameter_value)',
 				fontsize: 40,
 				fontsizeAllowShrink: true,
 				color: combineRgb(0, 0, 0),
 				halign: 'center',
 				valign: 'center',
-				outlineColor: 0xff000000
+				outlineColor: 0xff000000,
 			},
 			{
 				type: 'text',
 				id: 'param_label',
 				name: 'Parameter Name',
 				opacity: 85,
-				x: 0, y: 80, width: 100, height: 20,
+				x: 0,
+				y: 80,
+				width: 100,
+				height: 20,
 				text: '$(ableton:selected_parameter_name_short)',
 				fontsize: 100,
 				fontsizeAllowShrink: true,
 				color: combineRgb(0, 0, 0),
 				halign: 'center',
 				valign: 'center',
-				outlineColor: 0xff000000
-			}
+				outlineColor: 0xff000000,
+			},
 		],
 		steps: [{ down: [], up: [] }],
-		feedbacks: []
+		feedbacks: [],
 	}
 
 	presets['control_param_name'] = {
@@ -674,7 +751,7 @@ export async function UpdatePresets(self) {
 		name: 'Selected Parameter Name',
 		elements: boxTextElements('$(ableton:selected_parameter_name)', combineRgb(64, 64, 128), combineRgb(255, 255, 255)),
 		steps: [{ down: [], up: [] }],
-		feedbacks: []
+		feedbacks: [],
 	}
 
 	// ============================================================
@@ -690,13 +767,13 @@ export async function UpdatePresets(self) {
 				down: [
 					{
 						actionId: 'scan_project',
-						options: {}
-					}
+						options: {},
+					},
 				],
-				up: []
-			}
+				up: [],
+			},
 		],
-		feedbacks: []
+		feedbacks: [],
 	}
 
 	presets['utility_raw_osc'] = {
@@ -711,14 +788,14 @@ export async function UpdatePresets(self) {
 						actionId: 'raw_osc',
 						options: {
 							address: '/live/song/get/tempo',
-							args: ''
-						}
-					}
+							args: '',
+						},
+					},
 				],
-				up: []
-			}
+				up: [],
+			},
 		],
-		feedbacks: []
+		feedbacks: [],
 	}
 
 	presets['utility_raw_response'] = {
@@ -727,7 +804,7 @@ export async function UpdatePresets(self) {
 		name: 'Last Raw Response',
 		elements: boxTextElements('$(ableton:last_raw_response)', combineRgb(32, 32, 64), combineRgb(255, 255, 255)),
 		steps: [{ down: [], up: [] }],
-		feedbacks: []
+		feedbacks: [],
 	}
 
 	// Generate a simple hash to detect changes
@@ -754,7 +831,7 @@ export async function UpdatePresets(self) {
 		}
 		// Pin '0. Start Here' first and 'Controls' second, keep the rest (dynamic per-track/
 		// per-device categories) in their natural order
-		const categoryOrder = { '0. Start Here': 0, 'Controls': 1 }
+		const categoryOrder = { '0. Start Here': 0, Controls: 1 }
 		const structure = Array.from(structureMap.values())
 			.map((section, index) => ({ section, index }))
 			.sort((a, b) => {

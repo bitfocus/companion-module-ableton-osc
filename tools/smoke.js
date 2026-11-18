@@ -282,7 +282,9 @@ async function main() {
 	console.log(`actions:   ${Object.keys(captured.actions).length}`)
 	console.log(`feedbacks: ${Object.keys(captured.feedbacks).length}`)
 	console.log(`variables: ${Object.keys(captured.variables).length}`)
-	console.log(`presets:   ${Object.keys(captured.presets.presets).length} in ${captured.presets.structure.length} sections`)
+	console.log(
+		`presets:   ${Object.keys(captured.presets.presets).length} in ${captured.presets.structure.length} sections`,
+	)
 	console.log(`OSC sent:  ${sent.length} messages`)
 
 	if (problems.length > 0) {

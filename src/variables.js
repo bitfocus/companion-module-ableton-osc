@@ -9,7 +9,7 @@ export async function UpdateVariableDefinitions(self) {
 		selected_parameter_name: { name: 'Selected Parameter Name (Track > Device > Parameter)' },
 		selected_parameter_name_short: { name: 'Selected Parameter Name (Parameter only)' },
 		last_raw_response: { name: 'Last Raw OSC Response' },
-		last_raw_address: { name: 'Last Raw OSC Address' }
+		last_raw_address: { name: 'Last Raw OSC Address' },
 	}
 
 	const numTracks = self.numTracks || 8

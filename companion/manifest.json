@@ -5,18 +5,8 @@
 	"name": "Ableton Live (OSC)",
 	"shortname": "ableton",
 	"manufacturer": "Ableton",
-	"products": [
-		"Live"
-	],
-	"keywords": [
-		"ableton",
-		"live",
-		"osc",
-		"music",
-		"jingles",
-		"Audio follow Video",
-		"AfV"
-	],
+	"products": ["Live"],
+	"keywords": ["ableton", "live", "osc", "music", "jingles", "Audio follow Video", "AfV"],
 	"version": "2.0.0",
 	"license": "MIT",
 	"description": "Control Ableton Live via OSC",
@@ -39,4 +29,3 @@
 		}
 	}
 }
-
