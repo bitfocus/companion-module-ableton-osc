@@ -65,8 +65,15 @@ export default class AbletonOSCInstance extends InstanceBase {
 		this.blinkInterval = null
 		this.fetchTimeout = null
 		this.updateDebounceTimer = null
-		this.lastMeterUpdate = 0
 		this.meterUpdateInterval = 50
+		this.meterFlushTimer = null
+		this.pendingMeterValues = {}
+
+		// Scan limits: the project scan stops there, and so do the clip dropdowns
+		this.maxScanTracks = 64
+		this.maxScanScenes = 64
+		// Choices the action/feedback definitions were last built from (see scheduleUiUpdate)
+		this.definitionsSignature = ''
 		this.variableDefinitionsDirty = false
 		this.variableDefinitionsTimer = null
 	}
@@ -133,6 +140,11 @@ export default class AbletonOSCInstance extends InstanceBase {
 		if (this.updateDebounceTimer) {
 			clearTimeout(this.updateDebounceTimer)
 			this.updateDebounceTimer = null
+		}
+
+		if (this.meterFlushTimer) {
+			clearTimeout(this.meterFlushTimer)
+			this.meterFlushTimer = null
 		}
 
 		if (this.variableDefinitionsTimer) {
@@ -997,18 +1009,20 @@ export default class AbletonOSCInstance extends InstanceBase {
 
 				this.trackLevels[track] = maxLevel
 
-				const varId = `track_meter_${track}`
-				this.setVariableValues({
-					[varId]: maxLevel.toFixed(2),
-					[`track_meter_left_${track}`]: left.toFixed(2),
-					[`track_meter_right_${track}`]: right.toFixed(2),
-				})
+				// Live sends both channels of every track about 30 times a second: buffer the values
+				// and push them, with the feedback check, at most once per meterUpdateInterval. The
+				// flush runs after the last message too, so a meter falling back to 0 is never missed.
+				this.pendingMeterValues[`track_meter_${track}`] = maxLevel.toFixed(2)
+				this.pendingMeterValues[`track_meter_left_${track}`] = left.toFixed(2)
+				this.pendingMeterValues[`track_meter_right_${track}`] = right.toFixed(2)
 
-				// Throttle feedback updates to reduce CPU load
-				const now = Date.now()
-				if (now - this.lastMeterUpdate >= this.meterUpdateInterval) {
-					this.lastMeterUpdate = now
-					this.checkFeedbacks('track_meter')
+				if (!this.meterFlushTimer) {
+					this.meterFlushTimer = setTimeout(() => {
+						this.meterFlushTimer = null
+						this.setVariableValues(this.pendingMeterValues)
+						this.pendingMeterValues = {}
+						this.checkFeedbacks('track_meter')
+					}, this.meterUpdateInterval)
 				}
 			} else if (address === '/live/song/get/num_tracks') {
 				this.numTracks = args[0].value
@@ -1134,11 +1148,8 @@ export default class AbletonOSCInstance extends InstanceBase {
 
 		this.fetchTimeout = setTimeout(async () => {
 			// Limit to avoid flooding if project is huge
-			const maxTracks = 64
-			const maxScenes = 64
-
-			const tCount = Math.min(this.numTracks, maxTracks)
-			const sCount = Math.min(this.numScenes, maxScenes)
+			const tCount = Math.min(this.numTracks, this.maxScanTracks)
+			const sCount = Math.min(this.numScenes, this.maxScanScenes)
 
 			this.log('info', `Fetching info for ${tCount} tracks and ${sCount} scenes`)
 
@@ -1228,6 +1239,20 @@ export default class AbletonOSCInstance extends InstanceBase {
 	// ============================================================
 
 	initActions() {
+		this.buildChoices()
+		this.definitionsSignature = this.choicesSignature()
+		UpdateActions(this)
+	}
+
+	/**
+	 * Everything the action and feedback definitions are built from: when it hasn't changed,
+	 * re-sending the definitions is pointless.
+	 */
+	choicesSignature() {
+		return JSON.stringify([this.trackChoices, this.clipChoices, this.deviceChoices, this.knownParameters])
+	}
+
+	buildChoices() {
 		// Generate Track Choices
 		this.trackChoices = []
 		for (let i = 1; i <= this.numTracks; i++) {
@@ -1237,11 +1262,15 @@ export default class AbletonOSCInstance extends InstanceBase {
 
 		// Generate Clip Choices
 		// A slot is identified by track and scene (the Session View row it sits on). Empty slots
-		// are listed too, so that a button can target a slot that will be filled later.
+		// are listed too, so that a button can target a slot that will be filled later. The list
+		// stops at the scan limits: beyond them a large set would put thousands of entries in
+		// every clip dropdown.
 		this.clipChoices = []
-		for (let t = 1; t <= this.numTracks; t++) {
+		const choiceTracks = Math.min(this.numTracks, this.maxScanTracks)
+		const choiceScenes = Math.min(this.numScenes, this.maxScanScenes)
+		for (let t = 1; t <= choiceTracks; t++) {
 			const trackName = this.getVariableValue(`track_name_${t}`) || `Track ${t}`
-			for (let s = 1; s <= this.numScenes; s++) {
+			for (let s = 1; s <= choiceScenes; s++) {
 				const slotName = this.clipNames[`${t}_${s}`] || `Scene ${s}`
 				this.clipChoices.push({ id: `${t}_${s}`, label: `${trackName} - ${slotName}` })
 			}
@@ -1264,8 +1293,6 @@ export default class AbletonOSCInstance extends InstanceBase {
 		// Fallback if empty
 		if (this.trackChoices.length === 0) this.trackChoices.push({ id: 1, label: 'Track 1' })
 		if (this.deviceChoices.length === 0) this.deviceChoices.push({ id: '1_1', label: 'T1 > D1' })
-
-		UpdateActions(this)
 	}
 
 	initFeedbacks() {
@@ -1325,7 +1352,11 @@ export default class AbletonOSCInstance extends InstanceBase {
 		if (this.blinkInterval) clearInterval(this.blinkInterval)
 		this.blinkInterval = setInterval(() => {
 			this.blinkState = !this.blinkState
-			this.checkFeedbacks('clip_playing')
+			// Only playing clips blink; a clip stopping is already re-evaluated by the
+			// playing_slot_index handler
+			if (Object.values(this.clipPlaying).some((playing) => playing === true || playing === 1)) {
+				this.checkFeedbacks('clip_playing')
+			}
 		}, 500)
 	}
 
@@ -1358,8 +1389,15 @@ export default class AbletonOSCInstance extends InstanceBase {
 		this.updateDebounceTimer = setTimeout(() => {
 			const startTime = Date.now()
 
-			this.initActions()
-			this.initFeedbacks()
+			// Clip names, devices and parameters keep arriving during a scan, but most of them
+			// don't change any dropdown: only re-send the definitions when the choices changed
+			this.buildChoices()
+			const signature = this.choicesSignature()
+			if (signature !== this.definitionsSignature) {
+				this.definitionsSignature = signature
+				UpdateActions(this)
+				this.initFeedbacks()
+			}
 			this.initPresets()
 
 			const elapsed = Date.now() - startTime

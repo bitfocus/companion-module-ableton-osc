@@ -807,10 +807,10 @@ export async function UpdatePresets(self) {
 		feedbacks: [],
 	}
 
-	// Generate a simple hash to detect changes
+	// The presets are only re-sent when their content changed. Counts alone are not enough: a
+	// renamed track or a clip moved to another scene keeps every count, yet changes the presets.
+	const hash = JSON.stringify(presets)
 	const presetCount = Object.keys(presets).length
-	const deviceCount = Object.keys(self.deviceNames || {}).length
-	const hash = `${self.numTracks}_${self.numScenes}_${presetCount}_${deviceCount}_${hasClipData}`
 
 	// Only update if presets changed
 	if (hash !== self.lastPresetsHash) {
