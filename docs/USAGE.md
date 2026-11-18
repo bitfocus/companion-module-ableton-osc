@@ -103,8 +103,8 @@ Generic buttons to control the *currently selected* parameter:
   * **Step (+/-)**: Increments/Decrements the value by a given step.
   * **Set Value**: Sets the value (0-100).
 * **Raw OSC Command**: Send any custom OSC message to AbletonOSC. Useful for commands not yet implemented in the module.
-  * **Address**: The OSC path (e.g., `/live/song/set/tempo`)
-  * **Arguments**: Comma-separated values. Prefix with type: `i:123` (int), `f:1.5` (float), `s:text` (string). Without prefix, type is auto-detected.
+  * **Address**: The OSC path (e.g., `/live/song/set/tempo`). It must start with `/`: otherwise nothing is sent and a warning is logged.
+  * **Arguments**: Comma-separated values. Prefix with type: `i:123` (int), `f:1.5` (float), `s:text` (string). Without prefix, type is auto-detected. An `i:` or `f:` argument that is not a number cancels the command (a warning is logged).
   * **Response Capture**: When sending a "get" command, the response is automatically stored in a variable named `$(ableton:raw_<address>)`. Example: `/live/song/get/tempo` → `$(ableton:raw_live_song_get_tempo)`.
   * **Last Response**: The most recent raw response is also available in `$(ableton:last_raw_response)`.
 * **Clip Control Actions** (v1.2.0):
@@ -113,6 +113,9 @@ Generic buttons to control the *currently selected* parameter:
   * **Clip - Set Start Marker to Now**: Sets the start marker to the current playback position.
   * **Clip - Set End Marker to Now**: Sets the end marker to the current playback position.
   * **Clip - Set Loop Start (Value)** / **Set Loop End (Value)**: Sets the loop point to a specific position, in beats.
+
+> **Numeric text fields** (Value, Step, Beat Position) accept Companion variables, e.g. `$(internal:custom_level)`. When the
+> resulting text is not a number, the action does nothing and logs a warning instead of sending an invalid value to Live.
   * **Clip - Warping Toggle**: Toggles warping on/off for the clip (or forces it On/Off).
   * **Clip - Looping Toggle**: Toggles looping on/off for the clip (or forces it On/Off).
   * **Clip - Get Info**: Fetches loop points, markers, looping state, and warping state for a clip. Run it before relying on the matching variables and feedbacks: unlike track data, this information is not fetched by "Scan Project".
@@ -165,6 +168,12 @@ When using actions like **Set Parameter Value** or **Step Parameter**, you will 
 
 ## Troubleshooting
 
+* **Status "Disconnected – No reply from AbletonOSC"?**
+  * Ableton Live is closed, or AbletonOSC is not selected as a Control Surface in Live's preferences.
+  * Check the Target IP and Target Port, and that the "Receive Port" matches the port AbletonOSC replies to (usually 11001).
+  * The status turns back to "OK" by itself as soon as Live answers: no need to save the settings again.
+* **Status "Bad Config"?** Target IP, Target Port and Receive Port are all required.
+* **Status "Connection Failure"?** Usually the Receive Port is already used by another program (or another connection).
 * **No visual feedback (Meters/Names)?**
   * Did you run **Scan Project**?
   * Check that the "Receive Port" in Companion matches the output port configured in AbletonOSC (usually 11001).

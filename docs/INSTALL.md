@@ -30,7 +30,9 @@ For this module to work, you must install the remote script in Ableton Live:
     * **Target IP**: The IP address of the computer running Ableton (leave `127.0.0.1` if it's the same computer).
     * **Target Port (Send)**: AbletonOSC listening port (Default: `11000`).
     * **Receive Port (Listen)**: Companion listening port (Default: `11001`).
-3. Save. The status should change to "OK".
+3. Save. The status shows "Connecting – Waiting for Ableton Live" until AbletonOSC answers, then "OK".
+   If Live doesn't answer within 5 seconds (Live closed, AbletonOSC not enabled, wrong IP or port), the status becomes
+   "Disconnected – No reply from AbletonOSC at <IP>:<port>". It turns back to "OK" by itself as soon as Live answers.
 
 ## ⚠️ IMPORTANT: First Step
 
