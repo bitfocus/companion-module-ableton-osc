@@ -264,8 +264,12 @@ export default class AbletonOSCInstance extends InstanceBase {
 			clearInterval(existingFade.interval)
 		}
 
-		// "Fade by State" fades work between their own On/Off levels, they have no base level
-		const baseLevel = existingFade && existingFade.subtype !== 'toggle' ? existingFade.baseLevel : undefined
+		// A "Fade by State" fade has no base level of its own: its On level is the track's normal
+		// level, so a standard fade taking over resumes from the current level towards it
+		let baseLevel
+		if (existingFade) {
+			baseLevel = existingFade.subtype === 'toggle' ? existingFade.onLevel : existingFade.baseLevel
+		}
 
 		this.activeFades[id] = {
 			...fade,
