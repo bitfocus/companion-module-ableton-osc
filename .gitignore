@@ -1,9 +1,13 @@
 node_modules/
+package-lock.json
+/pkg
+/*.tgz
+DEBUG-*
+/.yarn
+
+# Local tooling
 .vscode/
 .claude/
 *.log
 .DS_Store
-pkg/
-*.tgz
-.yarn/*
 todo/
