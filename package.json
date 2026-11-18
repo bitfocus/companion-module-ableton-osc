@@ -2,6 +2,7 @@
   "name": "companion-module-ableton-osc",
   "version": "2.0.0",
   "main": "src/main.js",
+  "type": "module",
   "scripts": {
     "format": "prettier -w .",
     "package": "companion-module-build",
@@ -13,7 +14,7 @@
     "url": "git+https://github.com/bitfocus/companion-module-ableton-osc.git"
   },
   "engines": {
-    "node": "^22.20",
+    "node": "^26",
     "yarn": "^4"
   },
   "dependencies": {

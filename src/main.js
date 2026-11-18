@@ -1,15 +1,18 @@
-const { InstanceBase, Regex, InstanceStatus } = require('@companion-module/base')
-const osc = require('osc')
-const UpdateActions = require('./actions')
-const UpdateFeedbacks = require('./feedbacks')
-const UpdateVariables = require('./variables')
-const UpdatePresets = require('./presets')
+import { InstanceBase, Regex, InstanceStatus } from '@companion-module/base'
+import osc from 'osc'
+import { UpgradeScripts } from './upgrades.js'
+import { UpdateActions } from './actions.js'
+import { UpdateFeedbacks } from './feedbacks.js'
+import { UpdateVariableDefinitions } from './variables.js'
+import { UpdatePresets } from './presets.js'
+
+export { UpgradeScripts }
 
 // ============================================================
 // ABLETON OSC INSTANCE
 // ============================================================
 
-class AbletonOSCInstance extends InstanceBase {
+export default class AbletonOSCInstance extends InstanceBase {
 	constructor(internal) {
 		super(internal)
 		
@@ -1125,7 +1128,7 @@ class AbletonOSCInstance extends InstanceBase {
 	}
 
 	initVariables() {
-		UpdateVariables(this)
+		UpdateVariableDefinitions(this)
 	}
 
 	initPresets() {
@@ -1220,5 +1223,3 @@ class AbletonOSCInstance extends InstanceBase {
 		}, delay)
 	}
 }
-
-module.exports = AbletonOSCInstance

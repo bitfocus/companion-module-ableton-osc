@@ -1,6 +1,6 @@
-const { combineRgb } = require('@companion-module/base')
+import { combineRgb } from '@companion-module/base'
 
-module.exports = async function (self) {
+export async function UpdatePresets(self) {
 	const startTime = Date.now()
 	const presets = {}
 

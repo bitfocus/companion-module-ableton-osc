@@ -17,7 +17,7 @@
  * It does not open a socket and never talks to Ableton: `sendOsc` is captured instead.
  */
 
-const AbletonOSCInstance = require('../src/main.js')
+import AbletonOSCInstance from '../src/main.js'
 
 const problems = []
 const fail = (msg) => problems.push(msg)

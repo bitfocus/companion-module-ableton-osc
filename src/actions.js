@@ -1,4 +1,4 @@
-module.exports = function (self) {
+export function UpdateActions(self) {
 	/**
 	 * Expose a device parameter as a variable and subscribe to its value so it stays current.
 	 * Indexes are 0-based, matching what AbletonOSC expects on the wire.

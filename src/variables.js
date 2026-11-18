@@ -1,4 +1,4 @@
-module.exports = async function (self) {
+export async function UpdateVariableDefinitions(self) {
 	const variables = {
 		last_message: { name: 'Last OSC Message' },
 		selected_parameter_track: { name: 'Selected Parameter Track' },
