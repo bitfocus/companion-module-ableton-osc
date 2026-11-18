@@ -8,6 +8,19 @@ import { UpdatePresets } from './presets.js'
 
 export { UpgradeScripts }
 
+// Default project scan limits, used until the connection settings say otherwise
+const DEFAULT_SCAN_MAX_TRACKS = 128
+const DEFAULT_SCAN_MAX_SCENES = 64
+
+/**
+ * A scan limit from the config: a positive whole number, or the default when it is missing
+ * (connection saved by an older version) or invalid.
+ */
+function readLimit(value, fallback) {
+	const number = Math.floor(Number(value))
+	return Number.isFinite(number) && number >= 1 ? number : fallback
+}
+
 // ============================================================
 // ABLETON OSC INSTANCE
 // ============================================================
@@ -69,9 +82,9 @@ export default class AbletonOSCInstance extends InstanceBase {
 		this.meterFlushTimer = null
 		this.pendingMeterValues = {}
 
-		// Scan limits: the project scan stops there, and so do the clip dropdowns
-		this.maxScanTracks = 64
-		this.maxScanScenes = 64
+		// Scan limits (maxScanTracks / maxScanScenes) come from the config, see the getters.
+		// Number of tracks the last scan subscribed to, so they can all be released.
+		this.subscribedTracks = 0
 		// Choices the action/feedback definitions were last built from (see scheduleUiUpdate)
 		this.definitionsSignature = ''
 		// Time given to the stop_listen datagrams to leave before the socket closes
@@ -179,8 +192,19 @@ export default class AbletonOSCInstance extends InstanceBase {
 			await this.releaseSubscriptions()
 		}
 
+		const limitsChanged =
+			this.config &&
+			(readLimit(config.scanMaxTracks, DEFAULT_SCAN_MAX_TRACKS) !== this.maxScanTracks ||
+				readLimit(config.scanMaxScenes, DEFAULT_SCAN_MAX_SCENES) !== this.maxScanScenes)
+
 		this.config = config
 		this.initOsc()
+
+		if (limitsChanged) {
+			// The dropdowns follow the new limits right away; Live is only read again by a scan
+			this.scheduleUiUpdate()
+			this.log('info', 'Scan limits changed: run "Project - Scan" to read the tracks and scenes now included')
+		}
 	}
 
 	/**
@@ -189,7 +213,8 @@ export default class AbletonOSCInstance extends InstanceBase {
 	 * closing right after sending drops them.
 	 */
 	async releaseSubscriptions() {
-		const tracks = Math.min(this.numTracks, this.maxScanTracks)
+		// The tracks the scan actually subscribed to: the limit may have changed since
+		const tracks = this.subscribedTracks
 		for (let t = 0; t < tracks; t++) {
 			this.sendOsc('/live/track/stop_listen/output_meter_left', [{ type: 'i', value: t }])
 			this.sendOsc('/live/track/stop_listen/output_meter_right', [{ type: 'i', value: t }])
@@ -207,6 +232,7 @@ export default class AbletonOSCInstance extends InstanceBase {
 			])
 		}
 		this.activeParameterListeners.clear()
+		this.subscribedTracks = 0
 
 		await new Promise((resolve) => setTimeout(resolve, this.releaseFlushDelay))
 	}
@@ -239,7 +265,44 @@ export default class AbletonOSCInstance extends InstanceBase {
 				max: 65535,
 				default: 11001,
 			},
+			{
+				type: 'static-text',
+				id: 'scanInfo',
+				label: 'Project scan',
+				width: 12,
+				value:
+					'"Project - Scan" reads names, clips, devices and meters up to these limits. Raise them for larger sets; ' +
+					'larger values make the scan longer and the clip dropdowns longer (tracks x scenes entries).',
+			},
+			{
+				type: 'number',
+				id: 'scanMaxTracks',
+				label: 'Max tracks scanned',
+				width: 4,
+				min: 1,
+				max: 1000,
+				default: DEFAULT_SCAN_MAX_TRACKS,
+			},
+			{
+				type: 'number',
+				id: 'scanMaxScenes',
+				label: 'Max scenes scanned',
+				width: 4,
+				min: 1,
+				max: 1000,
+				default: DEFAULT_SCAN_MAX_SCENES,
+			},
 		]
+	}
+
+	/** Scan limit for tracks, from the config (connections saved before 2.1.0 use the default) */
+	get maxScanTracks() {
+		return readLimit(this.config?.scanMaxTracks, DEFAULT_SCAN_MAX_TRACKS)
+	}
+
+	/** Scan limit for scenes, from the config (connections saved before 2.1.0 use the default) */
+	get maxScanScenes() {
+		return readLimit(this.config?.scanMaxScenes, DEFAULT_SCAN_MAX_SCENES)
 	}
 
 	initOsc() {
@@ -1182,6 +1245,20 @@ export default class AbletonOSCInstance extends InstanceBase {
 			// Limit to avoid flooding if project is huge
 			const tCount = Math.min(this.numTracks, this.maxScanTracks)
 			const sCount = Math.min(this.numScenes, this.maxScanScenes)
+			// The limit was lowered since the last scan: release the tracks now left out
+			for (let t = tCount; t < Math.min(this.subscribedTracks, this.numTracks); t++) {
+				for (const prop of ['output_meter_left', 'output_meter_right', 'volume', 'mute', 'playing_slot_index']) {
+					this.sendOsc(`/live/track/stop_listen/${prop}`, [{ type: 'i', value: t }])
+				}
+			}
+			this.subscribedTracks = tCount
+			if (this.numTracks > tCount || this.numScenes > sCount) {
+				this.log(
+					'warn',
+					`The set has ${this.numTracks} tracks and ${this.numScenes} scenes: only ${tCount} tracks and ${sCount} scenes ` +
+						'are scanned. Raise "Max tracks/scenes scanned" in the connection settings to scan more.',
+				)
+			}
 
 			this.log('info', `Fetching info for ${tCount} tracks and ${sCount} scenes`)
 

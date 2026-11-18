@@ -30,6 +30,9 @@ For this module to work, you must install the remote script in Ableton Live:
     * **Target IP**: The IP address of the computer running Ableton (leave `127.0.0.1` if it's the same computer).
     * **Target Port (Send)**: AbletonOSC listening port (Default: `11000`).
     * **Receive Port (Listen)**: Companion listening port (Default: `11001`).
+    * **Max tracks scanned** / **Max scenes scanned**: how much of the set "Project - Scan" reads (Default: `128` tracks, `64` scenes).
+      Raise them for larger sets: the scan takes longer and the clip dropdowns grow (tracks × scenes entries).
+      When the set is larger than these limits, the Companion log says so after a scan.
 3. Save. The status shows "Connecting – Waiting for Ableton Live" until AbletonOSC answers, then "OK".
    If Live doesn't answer within 5 seconds (Live closed, AbletonOSC not enabled, wrong IP or port), the status becomes
    "Disconnected – No reply from AbletonOSC at <IP>:<port>". It turns back to "OK" by itself as soon as Live answers.
