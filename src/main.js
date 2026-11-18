@@ -265,8 +265,6 @@ export default class AbletonOSCInstance extends InstanceBase {
 				// AbletonOSC (re)started with Live: it forgot every subscription
 				this.log('info', 'AbletonOSC started')
 				this.replayParameterListeners()
-			} else if (oscMsg.address === '/live/error') {
-				this.log('warn', `AbletonOSC error: ${oscMsg.args?.[0]?.value ?? 'unknown'}`)
 			}
 
 			this.processOscMessage(oscMsg)
@@ -1078,6 +1076,9 @@ export default class AbletonOSCInstance extends InstanceBase {
 				// AbletonOSC error response - log but don't create variables
 				const errorMsg = args.length > 0 ? args[0].value : 'Unknown error'
 				this.log('warn', `AbletonOSC Error: ${errorMsg}`)
+			} else if (address === '/live/startup' || address === '/live/application/get/average_process_usage') {
+				// AbletonOSC announces itself with these two messages when it starts (handled in
+				// initOsc): they are not answers to a raw command, so they get no raw_ variable
 			} else {
 				// Generic handler for unhandled OSC responses
 				this.handleRawOscResponse(address, args)
