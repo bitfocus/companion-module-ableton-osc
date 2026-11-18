@@ -7,7 +7,7 @@
 	"manufacturer": "Ableton",
 	"products": ["Live"],
 	"keywords": ["ableton", "live", "osc", "music", "jingles", "Audio follow Video", "AfV"],
-	"version": "2.0.0",
+	"version": "2.1.0",
 	"license": "MIT",
 	"description": "Control Ableton Live via OSC",
 	"repository": "https://github.com/bitfocus/companion-module-ableton-osc",

@@ -9,6 +9,14 @@
 > Upgrading from 1.x: the **Track Meter Visual** feedback (PNG bargraph) is gone. Meters, volume
 > and parameter values are now native Companion **gauge** elements bound to variables.
 
+## What's new in 2.1.0
+
+- **Connection status follows Live**: "OK" only once AbletonOSC answers, "Disconnected" when Live stops answering.
+- **One scan is enough**: track and clip names no longer need a second "Project - Scan" on large sets.
+- **Scan limits in the connection settings** (default 128 tracks, 64 scenes, was 64 × 64).
+- **Fades**: interrupting a fade (another fade, a fade in, "Clip - Fire") keeps the original volume/gain.
+- Numeric text fields (Value, Step, Beat Position) accept `$(...)` variables.
+
 Welcome! This Companion module lets you control Ableton Live via OSC, with advanced visual feedback (clip names, colors, meters, etc.).
 
 ![Main Example](main_example_new.png)

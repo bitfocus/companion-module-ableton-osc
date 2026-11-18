@@ -8,6 +8,15 @@
 > Meters, volume and parameter values are now native Companion **gauge** elements bound to variables —
 > see the ready-made presets in `Tracks / [Track]` and `Controls`.
 
+## What's new in 2.1.0
+
+* **Connection status follows Live**: "OK" only once AbletonOSC answers, "Disconnected" when Live stops answering.
+* **One scan is enough**: track and clip names no longer need a second "Project - Scan" on large sets.
+* **Configurable scan limits** in the connection settings (default 128 tracks, 64 scenes, was 64 × 64).
+* **Fades**: interrupting a fade (another fade, a fade in, "Clip - Fire") keeps the original volume/gain.
+* **Variables** are accepted in the numeric text fields (Value, Step, Beat Position).
+* Lighter on Companion (definitions, presets and meters only sent when they change) and on Live (subscriptions released when the connection stops).
+
 This module allows you to control Ableton Live via OSC using the [AbletonOSC](https://github.com/ideoforms/AbletonOSC) control script.
 
 It offers advanced visual feedback, including clip names, colors, and real-time audio meters directly on your Stream Deck buttons.
