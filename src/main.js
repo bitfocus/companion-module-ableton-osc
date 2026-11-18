@@ -43,6 +43,16 @@ export default class AbletonOSCInstance extends InstanceBase {
 		this.activeFades = {}
 		// Pending end-of-fade restores, so destroy() can cancel them
 		this.restoreTimers = new Set()
+
+		// Connection state. Binding the UDP port says nothing about Live, so the status only turns
+		// OK once AbletonOSC answers, and goes back to Disconnected when it stays silent.
+		this.livenessTimer = null
+		this.lastReceivedAt = 0
+		this.liveReachable = false
+		this.probeOutstanding = false
+		this.livenessProbeAddress = '/live/application/get/version'
+		this.livenessProbeInterval = 2000
+		this.livenessTimeout = 5000
 		this.blinkState = false
 		this.variableIds = new Set()
 		this.activeParameterListeners = new Set()
@@ -94,6 +104,7 @@ export default class AbletonOSCInstance extends InstanceBase {
 
 	async destroy() {
 		if (this.blinkInterval) clearInterval(this.blinkInterval)
+		this.stopLivenessCheck()
 
 		// Stop all active fades
 		for (const id in this.activeFades) {
@@ -195,6 +206,8 @@ export default class AbletonOSCInstance extends InstanceBase {
 	}
 
 	initOsc() {
+		this.stopLivenessCheck()
+
 		if (this.oscPort) {
 			this.oscPort.close()
 			delete this.oscPort
@@ -202,43 +215,136 @@ export default class AbletonOSCInstance extends InstanceBase {
 
 		this.updateStatus(InstanceStatus.Connecting)
 
-		if (this.config.host && this.config.port) {
-			this.oscPort = new osc.UDPPort({
-				localAddress: '0.0.0.0',
-				localPort: this.config.receivePort,
-				remoteAddress: this.config.host,
-				remotePort: this.config.port,
-				metadata: true,
-			})
+		if (!this.config.host || !this.config.port || !this.config.receivePort) {
+			// Without a receive port osc.js would silently bind its default port (57121)
+			this.updateStatus(InstanceStatus.BadConfig, 'Target IP, Target Port and Receive Port are required')
+			return
+		}
 
-			this.oscPort.on('ready', () => {
-				this.updateStatus(InstanceStatus.Ok)
-				this.log('info', 'OSC Ready')
+		this.oscPort = new osc.UDPPort({
+			localAddress: '0.0.0.0',
+			localPort: this.config.receivePort,
+			remoteAddress: this.config.host,
+			remotePort: this.config.port,
+			metadata: true,
+		})
 
-				// The port was re-created (config change or reconnect): Live no longer knows where
-				// to push values, so replay every device parameter subscription
-				for (const key of this.activeParameterListeners) {
-					const [track, device, parameter] = key.split('_').map(Number)
-					this.sendOsc('/live/device/start_listen/parameter/value', [
-						{ type: 'i', value: track },
-						{ type: 'i', value: device },
-						{ type: 'i', value: parameter },
-					])
-				}
-			})
+		this.oscPort.on('ready', () => {
+			this.log('info', `OSC port ${this.config.receivePort} open, waiting for AbletonOSC`)
+			this.updateStatus(InstanceStatus.Connecting, 'Waiting for Ableton Live')
 
-			this.oscPort.on('error', (err) => {
+			// The port was re-created (config change or reconnect): Live no longer knows where
+			// to push values, so replay every device parameter subscription
+			this.replayParameterListeners()
+
+			this.startLivenessCheck()
+		})
+
+		this.oscPort.on('error', (err) => {
+			if (err.code) {
+				// Socket error (port already in use, permission denied, ...): the connection is broken
 				this.updateStatus(InstanceStatus.ConnectionFailure, err.message)
 				this.log('error', 'OSC Error: ' + err.message)
-			})
+			} else {
+				// osc.js reports packets it cannot encode or decode through the same event, but the
+				// socket still works: log it without marking the connection as failed
+				this.log('warn', 'OSC packet error: ' + err.message)
+			}
+		})
 
-			this.oscPort.on('message', (oscMsg) => {
-				this.processOscMessage(oscMsg)
-			})
+		this.oscPort.on('message', (oscMsg) => {
+			this.markLiveReachable()
 
-			this.oscPort.open()
-		} else {
-			this.updateStatus(InstanceStatus.BadConfig)
+			// Our own liveness probe: keep it out of last_message and the debug log
+			if (oscMsg.address === this.livenessProbeAddress && this.probeOutstanding) {
+				this.probeOutstanding = false
+				return
+			}
+
+			if (oscMsg.address === '/live/startup') {
+				// AbletonOSC (re)started with Live: it forgot every subscription
+				this.log('info', 'AbletonOSC started')
+				this.replayParameterListeners()
+			} else if (oscMsg.address === '/live/error') {
+				this.log('warn', `AbletonOSC error: ${oscMsg.args?.[0]?.value ?? 'unknown'}`)
+			}
+
+			this.processOscMessage(oscMsg)
+		})
+
+		this.oscPort.open()
+	}
+
+	/**
+	 * Re-subscribe every device parameter listener, after Live lost them (new port, Live restart).
+	 */
+	replayParameterListeners() {
+		for (const key of this.activeParameterListeners) {
+			const [track, device, parameter] = key.split('_').map(Number)
+			this.sendOsc('/live/device/start_listen/parameter/value', [
+				{ type: 'i', value: track },
+				{ type: 'i', value: device },
+				{ type: 'i', value: parameter },
+			])
+		}
+	}
+
+	// ============================================================
+	// CONNECTION STATUS
+	// ============================================================
+
+	/**
+	 * Watch whether AbletonOSC answers. Any message from Live counts as a sign of life; when Live
+	 * has been quiet for a while, a silent query is sent (/live/test would show a message in Live).
+	 */
+	startLivenessCheck() {
+		this.stopLivenessCheck()
+		this.liveReachable = false
+		this.lastReceivedAt = 0
+		this.livenessStartedAt = Date.now()
+		this.sendLivenessProbe()
+
+		this.livenessTimer = setInterval(() => {
+			const now = Date.now()
+			const quietSince = Math.max(this.lastReceivedAt, this.livenessStartedAt)
+
+			if (now - quietSince >= this.livenessTimeout) {
+				if (this.liveReachable || this.lastReceivedAt === 0) {
+					this.liveReachable = false
+					this.lastReceivedAt = -1 // report it only once until Live answers again
+					this.updateStatus(
+						InstanceStatus.Disconnected,
+						`No reply from AbletonOSC at ${this.config.host}:${this.config.port}`,
+					)
+					this.log('warn', `No reply from AbletonOSC at ${this.config.host}:${this.config.port}`)
+				}
+			}
+
+			if (now - quietSince >= this.livenessProbeInterval) {
+				this.sendLivenessProbe()
+			}
+		}, this.livenessProbeInterval)
+	}
+
+	stopLivenessCheck() {
+		if (this.livenessTimer) {
+			clearInterval(this.livenessTimer)
+			this.livenessTimer = null
+		}
+		this.probeOutstanding = false
+	}
+
+	sendLivenessProbe() {
+		this.probeOutstanding = true
+		this.sendOsc(this.livenessProbeAddress, [])
+	}
+
+	markLiveReachable() {
+		this.lastReceivedAt = Date.now()
+		if (!this.liveReachable) {
+			this.liveReachable = true
+			this.updateStatus(InstanceStatus.Ok)
+			this.log('info', 'AbletonOSC is answering')
 		}
 	}
 
@@ -1223,11 +1329,17 @@ export default class AbletonOSCInstance extends InstanceBase {
 	}
 
 	sendOsc(address, args) {
-		if (this.oscPort) {
+		if (!this.oscPort) return
+
+		try {
 			this.oscPort.send({
 				address: address,
 				args: args,
 			})
+		} catch (e) {
+			// osc.js has already reported an encode error through the 'error' event; it then throws
+			// while sending the missing buffer, which must not escape into an action callback
+			this.log('warn', `Could not send OSC ${address}: ${e.message}`)
 		}
 	}
 

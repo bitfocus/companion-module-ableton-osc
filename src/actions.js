@@ -1125,8 +1125,14 @@ export function UpdateActions(self) {
 				},
 			],
 			callback: async (event) => {
-				const address = event.options.address.trim()
+				const address = String(event.options.address ?? '').trim()
 				const argsStr = event.options.args?.trim() || ''
+
+				// osc.js cannot encode an address without a leading slash
+				if (!address.startsWith('/')) {
+					self.log('warn', `Raw OSC: "${address}" is not a valid OSC address, it must start with "/"`)
+					return
+				}
 
 				let oscArgs = []
 
