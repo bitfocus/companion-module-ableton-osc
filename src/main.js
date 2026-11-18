@@ -74,6 +74,12 @@ export default class AbletonOSCInstance extends InstanceBase {
 		this.maxScanScenes = 64
 		// Choices the action/feedback definitions were last built from (see scheduleUiUpdate)
 		this.definitionsSignature = ''
+		// Time given to the stop_listen datagrams to leave before the socket closes
+		this.releaseFlushDelay = 50
+		// Values of variables whose definition has not been sent yet (see checkVariableDefinition)
+		this.pendingVariableValues = {}
+		this.pendingVariableIds = new Set()
+		this.destroyed = false
 		this.variableDefinitionsDirty = false
 		this.variableDefinitionsTimer = null
 	}
@@ -110,6 +116,9 @@ export default class AbletonOSCInstance extends InstanceBase {
 	}
 
 	async destroy() {
+		// Stops the project scan loop and the variable bookkeeping that could still be running
+		this.destroyed = true
+
 		if (this.blinkInterval) clearInterval(this.blinkInterval)
 		this.stopLivenessCheck()
 
@@ -153,28 +162,8 @@ export default class AbletonOSCInstance extends InstanceBase {
 		}
 
 		if (this.oscPort) {
-			// Release every subscription so Live stops streaming to a port nobody listens on.
-			// Best effort only: the socket may already be gone, which must not block teardown.
-			try {
-				for (let t = 0; t < this.numTracks; t++) {
-					this.sendOsc('/live/track/stop_listen/output_meter_left', [{ type: 'i', value: t }])
-					this.sendOsc('/live/track/stop_listen/output_meter_right', [{ type: 'i', value: t }])
-					this.sendOsc('/live/track/stop_listen/volume', [{ type: 'i', value: t }])
-					this.sendOsc('/live/track/stop_listen/mute', [{ type: 'i', value: t }])
-					this.sendOsc('/live/track/stop_listen/playing_slot_index', [{ type: 'i', value: t }])
-				}
-
-				for (const key of this.activeParameterListeners) {
-					const [track, device, parameter] = key.split('_').map(Number)
-					this.sendOsc('/live/device/stop_listen/parameter/value', [
-						{ type: 'i', value: track },
-						{ type: 'i', value: device },
-						{ type: 'i', value: parameter },
-					])
-				}
-			} catch (e) {}
-
-			this.activeParameterListeners.clear()
+			// Release every subscription so Live stops streaming to a port nobody listens on
+			await this.releaseSubscriptions()
 
 			this.oscPort.close()
 			delete this.oscPort
@@ -182,8 +171,44 @@ export default class AbletonOSCInstance extends InstanceBase {
 	}
 
 	async configUpdated(config) {
+		const targetChanged = this.config && (config.host !== this.config.host || config.port !== this.config.port)
+
+		// Subscriptions live in the AbletonOSC we are leaving: release them there first.
+		// With the same target they are kept, so meters and states keep updating without a rescan.
+		if (targetChanged && this.oscPort) {
+			await this.releaseSubscriptions()
+		}
+
 		this.config = config
 		this.initOsc()
+	}
+
+	/**
+	 * Ask Live to drop every listener the module set up (meters, volume, mute, playing slot,
+	 * device parameters), then give the datagrams time to leave before the socket is closed:
+	 * closing right after sending drops them.
+	 */
+	async releaseSubscriptions() {
+		const tracks = Math.min(this.numTracks, this.maxScanTracks)
+		for (let t = 0; t < tracks; t++) {
+			this.sendOsc('/live/track/stop_listen/output_meter_left', [{ type: 'i', value: t }])
+			this.sendOsc('/live/track/stop_listen/output_meter_right', [{ type: 'i', value: t }])
+			this.sendOsc('/live/track/stop_listen/volume', [{ type: 'i', value: t }])
+			this.sendOsc('/live/track/stop_listen/mute', [{ type: 'i', value: t }])
+			this.sendOsc('/live/track/stop_listen/playing_slot_index', [{ type: 'i', value: t }])
+		}
+
+		for (const key of this.activeParameterListeners) {
+			const [track, device, parameter] = key.split('_').map(Number)
+			this.sendOsc('/live/device/stop_listen/parameter/value', [
+				{ type: 'i', value: track },
+				{ type: 'i', value: device },
+				{ type: 'i', value: parameter },
+			])
+		}
+		this.activeParameterListeners.clear()
+
+		await new Promise((resolve) => setTimeout(resolve, this.releaseFlushDelay))
 	}
 
 	getConfigFields() {
@@ -1026,6 +1051,13 @@ export default class AbletonOSCInstance extends InstanceBase {
 				}
 			} else if (address === '/live/song/get/num_tracks') {
 				this.numTracks = args[0].value
+
+				// Tracks deleted since the last scan must not keep their devices and parameters
+				// in the dropdowns and presets
+				for (const track of Object.keys(this.deviceNames)) {
+					if (Number(track) > this.numTracks) delete this.deviceNames[track]
+				}
+				this.knownParameters = this.knownParameters.filter((p) => Number(p.id.split('_')[0]) <= this.numTracks)
 				this.isScanning = true
 				this.log('info', `Scanning ${this.numTracks} tracks...`)
 				this.fetchClipInfo()
@@ -1202,6 +1234,7 @@ export default class AbletonOSCInstance extends InstanceBase {
 					if (msgCount >= 100) {
 						await new Promise((resolve) => setTimeout(resolve, 10))
 						msgCount = 0
+						if (this.destroyed) return
 					}
 				}
 			}
@@ -1217,21 +1250,55 @@ export default class AbletonOSCInstance extends InstanceBase {
 	 * Updates are batched to avoid performance issues
 	 */
 	checkVariableDefinition(id, name) {
+		if (this.destroyed) return
+
 		if (!this.variableIds.has(id)) {
 			this.variableIds.add(id)
 			this.variableDefinitions[id] = { name: name }
 			this.variableDefinitionsDirty = true
+			this.pendingVariableIds.add(id)
 
 			if (!this.variableDefinitionsTimer) {
 				this.variableDefinitionsTimer = setTimeout(() => {
+					this.variableDefinitionsTimer = null
+					if (this.destroyed) return
+
 					if (this.variableDefinitionsDirty) {
 						this.setVariableDefinitions(this.variableDefinitions)
 						this.variableDefinitionsDirty = false
 					}
-					this.variableDefinitionsTimer = null
+
+					// Now that Companion knows these variables, send the values they received meanwhile
+					this.pendingVariableIds.clear()
+					const values = this.pendingVariableValues
+					this.pendingVariableValues = {}
+					if (Object.keys(values).length > 0) super.setVariableValues(values)
 				}, 100)
 			}
 		}
+	}
+
+	/**
+	 * Variable definitions are batched (see checkVariableDefinition), so a value can arrive for a
+	 * variable Companion doesn't know yet: hold such values back until the definitions are sent.
+	 */
+	setVariableValues(values) {
+		if (this.pendingVariableIds.size === 0) {
+			super.setVariableValues(values)
+			return
+		}
+
+		const known = {}
+		let hasKnown = false
+		for (const [id, value] of Object.entries(values)) {
+			if (this.pendingVariableIds.has(id)) {
+				this.pendingVariableValues[id] = value
+			} else {
+				known[id] = value
+				hasKnown = true
+			}
+		}
+		if (hasKnown) super.setVariableValues(known)
 	}
 
 	// ============================================================
