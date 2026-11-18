@@ -1,3 +1,26 @@
+/**
+ * Read a number typed in a text option (variables are already resolved by Companion).
+ * Returns null, and logs why, when the text is not a number: the action then does nothing
+ * instead of sending NaN to Live.
+ *
+ * @param {object} self - Module instance, for logging
+ * @param {*} raw - Option value
+ * @param {string} label - Option label, for the log message
+ * @param {number} [fallback] - Value used when the field is empty
+ * @returns {number|null}
+ */
+function readNumberOption(self, raw, label, fallback) {
+	const text = String(raw ?? '').trim()
+	if (text === '' && fallback !== undefined) return fallback
+
+	const value = parseFloat(text)
+	if (!Number.isFinite(value)) {
+		self.log('warn', `${label}: "${text}" is not a number, nothing sent`)
+		return null
+	}
+	return value
+}
+
 export function UpdateActions(self) {
 	/**
 	 * Expose a device parameter as a variable and subscribe to its value so it stays current.
@@ -222,6 +245,7 @@ export function UpdateActions(self) {
 					label: 'Value (0-100)',
 					id: 'value',
 					default: '50',
+					useVariables: true,
 				},
 				{
 					type: 'checkbox',
@@ -240,7 +264,9 @@ export function UpdateActions(self) {
 				const track = parseInt(trackStr) - 1
 				const device = parseInt(deviceStr) - 1
 				const parameter = parseInt(parameterStr) - 1
-				const value = parseFloat(event.options.value) / 100.0
+				const percent = readNumberOption(self, event.options.value, 'Device - Set Parameter Value')
+				if (percent === null) return
+				const value = percent / 100.0
 
 				if (event.options.create_variable) {
 					monitorDeviceParameter(paramId, track, device, parameter)
@@ -273,6 +299,7 @@ export function UpdateActions(self) {
 					label: 'Step (e.g. 1, 5, -5) (Scale 0-100)',
 					id: 'step',
 					default: '1',
+					useVariables: true,
 				},
 				{
 					type: 'checkbox',
@@ -291,7 +318,9 @@ export function UpdateActions(self) {
 				const track = parseInt(trackStr) - 1
 				const device = parseInt(deviceStr) - 1
 				const parameter = parseInt(parameterStr) - 1
-				const step = parseFloat(event.options.step) / 100.0
+				const stepPercent = readNumberOption(self, event.options.step, 'Device - Step Parameter Value (Rotary/Button)')
+				if (stepPercent === null) return
+				const step = stepPercent / 100.0
 
 				// Stepping reads the cached value, so re-arm the subscription on every press
 				self.listenToDeviceParameter(track, device, parameter, { force: true })
@@ -436,6 +465,7 @@ export function UpdateActions(self) {
 					label: 'Step (e.g. 1, 5, -5) (Scale 0-100)',
 					id: 'step',
 					default: '1',
+					useVariables: true,
 				},
 			],
 			callback: async (event) => {
@@ -447,7 +477,9 @@ export function UpdateActions(self) {
 				const track = self.selectedParameter.track - 1
 				const device = self.selectedParameter.device - 1
 				const parameter = self.selectedParameter.parameter - 1
-				const step = parseFloat(event.options.step) / 100.0
+				const stepPercent = readNumberOption(self, event.options.step, 'Selected Device Parameter - Step (+/-)')
+				if (stepPercent === null) return
+				const step = stepPercent / 100.0
 
 				const key = `${self.selectedParameter.track}_${self.selectedParameter.device}_${self.selectedParameter.parameter}`
 				const current = self.deviceParameters[key]
@@ -477,6 +509,7 @@ export function UpdateActions(self) {
 					label: 'Value (0-100)',
 					id: 'value',
 					default: '50',
+					useVariables: true,
 				},
 			],
 			callback: async (event) => {
@@ -488,7 +521,9 @@ export function UpdateActions(self) {
 				const track = self.selectedParameter.track - 1
 				const device = self.selectedParameter.device - 1
 				const parameter = self.selectedParameter.parameter - 1
-				const value = parseFloat(event.options.value) / 100.0
+				const percent = readNumberOption(self, event.options.value, 'Selected Device Parameter - Set Value')
+				if (percent === null) return
+				const value = percent / 100.0
 
 				self.sendOsc('/live/device/set/parameter/value', [
 					{ type: 'i', value: track },
@@ -912,6 +947,7 @@ export function UpdateActions(self) {
 					label: 'Beat Position',
 					id: 'position',
 					default: '0',
+					useVariables: true,
 					tooltip: 'Position in beats (e.g., 4.0 for beat 4)',
 				},
 			],
@@ -919,7 +955,8 @@ export function UpdateActions(self) {
 				const [trackStr, clipStr] = event.options.clipId.split('_')
 				const track = parseInt(trackStr) - 1
 				const clip = parseInt(clipStr) - 1
-				const position = parseFloat(event.options.position) || 0
+				const position = readNumberOption(self, event.options.position, 'Clip - Set Loop Start (Value)', 0)
+				if (position === null) return
 
 				self.sendOsc('/live/clip/set/loop_start', [
 					{ type: 'i', value: track },
@@ -945,6 +982,7 @@ export function UpdateActions(self) {
 					label: 'Beat Position',
 					id: 'position',
 					default: '16',
+					useVariables: true,
 					tooltip: 'Position in beats (e.g., 16.0 for beat 16)',
 				},
 			],
@@ -952,7 +990,8 @@ export function UpdateActions(self) {
 				const [trackStr, clipStr] = event.options.clipId.split('_')
 				const track = parseInt(trackStr) - 1
 				const clip = parseInt(clipStr) - 1
-				const position = parseFloat(event.options.position) || 16
+				const position = readNumberOption(self, event.options.position, 'Clip - Set Loop End (Value)', 16)
+				if (position === null) return
 
 				self.sendOsc('/live/clip/set/loop_end', [
 					{ type: 'i', value: track },
@@ -1140,12 +1179,13 @@ export function UpdateActions(self) {
 					const parts = argsStr.split(',').map((p) => p.trim())
 
 					for (const part of parts) {
-						if (part.startsWith('i:')) {
-							// Explicit integer
-							oscArgs.push({ type: 'i', value: parseInt(part.substring(2)) })
-						} else if (part.startsWith('f:')) {
-							// Explicit float
-							oscArgs.push({ type: 'f', value: parseFloat(part.substring(2)) })
+						if (part.startsWith('i:') || part.startsWith('f:')) {
+							// Explicit integer / float
+							const number = readNumberOption(self, part.substring(2), `Raw OSC argument "${part}"`)
+							if (number === null) return
+							oscArgs.push(
+								part.startsWith('i:') ? { type: 'i', value: Math.trunc(number) } : { type: 'f', value: number },
+							)
 						} else if (part.startsWith('s:')) {
 							// Explicit string
 							oscArgs.push({ type: 's', value: part.substring(2) })
