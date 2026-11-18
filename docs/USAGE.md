@@ -180,3 +180,19 @@ When using actions like **Set Parameter Value** or **Step Parameter**, you will 
   * Check that no firewall is blocking UDP ports 11000 and 11001.
 * **Module disconnects/reconnects?**
   * Check Companion logs. If it persists, check your network configuration.
+
+### Known AbletonOSC issues
+
+These are bugs in the AbletonOSC script itself, not in this module (still present in AbletonOSC as of November 2026).
+
+* **Live's log fills up during "Project - Scan"** (`TypeError: not all arguments converted during string formatting`,
+  from `abletonosc/clip_slot.py`). AbletonOSC logs every clip slot query with invalid arguments, so each one prints a
+  full Python traceback in Live's `Log.txt`. It is harmless (the answer is still sent), but it slows AbletonOSC down
+  during the scan of a large set.
+* **Windows: AbletonOSC stops answering after Companion was closed abruptly.** If Companion (or the connection) stops
+  without unsubscribing, for example after a crash, Live keeps sending meter and volume updates to a port nobody
+  listens on. On Windows each of those sends makes AbletonOSC's next read fail (`ConnectionResetError: [WinError 10054]`
+  in Live's log), and AbletonOSC no longer reads incoming commands: the connection stays "Disconnected".
+  To recover, in Live's preferences set the AbletonOSC Control Surface to "None" and back to "AbletonOSC": this
+  restarts the script and drops the old subscriptions. Then run "Project - Scan" again. The module releases its
+  subscriptions when the connection is disabled or removed normally, so this only happens after an abrupt stop.
