@@ -17,7 +17,7 @@
  * It does not open a socket and never talks to Ableton: `sendOsc` is captured instead.
  */
 
-const AbletonOSCInstance = require('../main.js')
+const AbletonOSCInstance = require('../src/main.js')
 
 const problems = []
 const fail = (msg) => problems.push(msg)
@@ -28,7 +28,7 @@ const fail = (msg) => problems.push(msg)
 
 // InstanceBase delegates every set*Definitions call to the context it is constructed with, and
 // refuses to be built without one. Providing a fake lets us instantiate the real module class,
-// so the harness stays in sync with main.js instead of duplicating its constructor.
+// so the harness stays in sync with src/main.js instead of duplicating its constructor.
 const captured = {}
 const variableValues = {}
 

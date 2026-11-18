@@ -1,7 +1,7 @@
 {
   "name": "companion-module-ableton-osc",
   "version": "2.0.0",
-  "main": "main.js",
+  "main": "src/main.js",
   "scripts": {
     "format": "prettier -w .",
     "package": "companion-module-build",
