@@ -41,6 +41,8 @@ export default class AbletonOSCInstance extends InstanceBase {
 		// the fader jumps back up (avoids an audible "pop")
 		this.fadeStopRestoreDelay = 80
 		this.activeFades = {}
+		// Pending end-of-fade restores, so destroy() can cancel them
+		this.restoreTimers = new Set()
 		this.blinkState = false
 		this.variableIds = new Set()
 		this.activeParameterListeners = new Set()
@@ -100,6 +102,11 @@ export default class AbletonOSCInstance extends InstanceBase {
 			}
 		}
 		this.activeFades = {}
+
+		for (const timer of this.restoreTimers) {
+			clearTimeout(timer)
+		}
+		this.restoreTimers.clear()
 
 		// Clear all track delays
 		for (const id in this.trackDelays) {
@@ -240,9 +247,53 @@ export default class AbletonOSCInstance extends InstanceBase {
 	// ============================================================
 
 	/**
-	 * Cancel a fade out running on a track and restore its volume.
+	 * Arm a standard fade (clip gain or track volume, in or out), replacing any fade already
+	 * running on the same clip/track. The fade itself starts once Live answers with the current
+	 * level (see startFade), so the caller then sends the matching get request.
+	 *
+	 * The level the clip/track had before any fade started (baseLevel) is handed over from the
+	 * interrupted fade: otherwise the new fade would take the half-faded level as the original
+	 * one, and the volume/gain would end up permanently lower.
+	 *
+	 * @param {string} id - Fade key, `track_<i>` or `clip_<t>_<c>`
+	 * @param {object} fade - type, direction, track, clip (clip fades only) and duration
+	 */
+	armFade(id, fade) {
+		const existingFade = this.activeFades[id]
+		if (existingFade && existingFade.interval) {
+			clearInterval(existingFade.interval)
+		}
+
+		// "Fade by State" fades work between their own On/Off levels, they have no base level
+		const baseLevel = existingFade && existingFade.subtype !== 'toggle' ? existingFade.baseLevel : undefined
+
+		this.activeFades[id] = {
+			...fade,
+			baseLevel,
+			startTime: Date.now(),
+			state: 'init',
+		}
+	}
+
+	/**
+	 * Run a callback after fadeStopRestoreDelay, keeping the timer so destroy() can cancel it.
+	 *
+	 * @param {function} callback
+	 */
+	scheduleFadeRestore(callback) {
+		const timer = setTimeout(() => {
+			this.restoreTimers.delete(timer)
+			callback()
+		}, this.fadeStopRestoreDelay)
+		this.restoreTimers.add(timer)
+	}
+
+	/**
+	 * Cancel every fade out running on a track (the track fade and any clip fade on it) and
+	 * restore the level they started from.
 	 * Called when a clip is fired on that track, either from an action or because Live reported
-	 * a new playing slot: without this the new clip would inherit the fading-out volume.
+	 * a new playing slot: without this the new clip would inherit the fading-out volume, or a
+	 * fading clip that was fired again would keep fading and then be stopped.
 	 *
 	 * "Fade by State" fades (subtype 'toggle') are excluded: they are driven by an external
 	 * variable, which stays the authority on the track level.
@@ -251,25 +302,37 @@ export default class AbletonOSCInstance extends InstanceBase {
 	 * @returns {boolean} true if a fade was actually cancelled
 	 */
 	cancelFadeOutOnTrack(trackIndex) {
-		const fadeId = `track_${trackIndex}`
-		const activeFade = this.activeFades[fadeId]
+		let cancelled = false
 
-		if (activeFade && activeFade.direction === 'out' && activeFade.subtype !== 'toggle') {
-			if (activeFade.interval) {
-				clearInterval(activeFade.interval)
+		for (const [id, fade] of Object.entries(this.activeFades)) {
+			if (fade.track !== trackIndex || fade.direction !== 'out' || fade.subtype === 'toggle') continue
+
+			if (fade.interval) {
+				clearInterval(fade.interval)
 			}
+			delete this.activeFades[id]
+			cancelled = true
 
-			// Back to the level the fade started from
-			this.sendOsc('/live/track/set/volume', [
-				{ type: 'i', value: trackIndex },
-				{ type: 'f', value: activeFade.fromVolume },
-			])
+			// A fade still waiting for Live's answer has not moved the level yet: nothing to restore
+			if (typeof fade.baseLevel !== 'number') continue
 
-			delete this.activeFades[fadeId]
-			this.log('info', `Fade Out cancelled on track ${trackIndex + 1} - clip fired, volume restored`)
-			return true
+			if (fade.type === 'clip') {
+				this.sendOsc('/live/clip/set/gain', [
+					{ type: 'i', value: fade.track },
+					{ type: 'i', value: fade.clip },
+					{ type: 'f', value: fade.baseLevel },
+				])
+				this.log('info', `Fade Out cancelled on clip ${fade.track + 1}-${fade.clip + 1} - clip fired, gain restored`)
+			} else {
+				this.sendOsc('/live/track/set/volume', [
+					{ type: 'i', value: fade.track },
+					{ type: 'f', value: fade.baseLevel },
+				])
+				this.log('info', `Fade Out cancelled on track ${trackIndex + 1} - clip fired, volume restored`)
+			}
 		}
-		return false
+
+		return cancelled
 	}
 
 	/**
@@ -348,22 +411,30 @@ export default class AbletonOSCInstance extends InstanceBase {
 				)
 			}
 		} else {
-			// Standard Fade (clip gain, etc.)
+			// Standard fade (clip gain or track volume). baseLevel is the level before any fade
+			// started; an interrupted fade hands it over (see armFade), otherwise it is the level
+			// Live reports now
+			const interrupted = typeof fade.baseLevel === 'number'
+			if (!interrupted) fade.baseLevel = startValue
+
 			if (fade.direction === 'out') {
+				// From wherever the level is now down to silence; baseLevel is restored at the end
 				fromVolume = startValue
 				toVolume = 0
 			} else {
-				fromVolume = 0
-				toVolume = startValue
+				// A clip fade in re-fires the clip, and a fresh track fade in starts from silence.
+				// A track fade in that interrupts another fade resumes from the current level.
+				fromVolume = fade.type === 'track' && interrupted ? startValue : 0
+				toVolume = fade.baseLevel
 			}
 		}
 
 		fade.fromVolume = fromVolume
 		fade.toVolume = toVolume
 
-		// A standard fade in must start from silence, so drop the level before the clip is fired
+		// A standard fade in from silence must drop the level first, before the clip is fired
 		// (firing first would let the first frames through at full level)
-		if (fade.direction === 'in' && fade.subtype !== 'toggle') {
+		if (fade.direction === 'in' && fade.subtype !== 'toggle' && fromVolume === 0) {
 			if (fade.type === 'clip') {
 				this.sendOsc('/live/clip/set/gain', [
 					{ type: 'i', value: fade.track },
@@ -406,14 +477,12 @@ export default class AbletonOSCInstance extends InstanceBase {
 				}
 				newValue = fade.fromVolume + (fade.toVolume - fade.fromVolume) * easedProgress
 			} else {
-				// Standard fades run between the current level and silence, quadratic ease-out
-				// in both directions
+				// Standard fades: quadratic ease-out in both directions
+				const remaining = 1.0 - progress
 				if (fade.direction === 'out') {
-					const remaining = 1.0 - progress
 					newValue = fade.fromVolume * (remaining * remaining)
 				} else {
-					const p = 1.0 - progress
-					newValue = fade.toVolume * (1.0 - p * p)
+					newValue = fade.fromVolume + (fade.toVolume - fade.fromVolume) * (1.0 - remaining * remaining)
 				}
 			}
 
@@ -427,16 +496,16 @@ export default class AbletonOSCInstance extends InstanceBase {
 							{ type: 'i', value: fade.track },
 							{ type: 'i', value: fade.clip },
 						])
-						// Restore gain for clips, slightly delayed so Live has time to actually
+						// Restore the pre-fade gain, slightly delayed so Live has time to actually
 						// stop the clip first - otherwise the gain jumps back up before playback
 						// stops and produces an audible "pop"
-						setTimeout(() => {
+						this.scheduleFadeRestore(() => {
 							this.sendOsc('/live/clip/set/gain', [
 								{ type: 'i', value: fade.track },
 								{ type: 'i', value: fade.clip },
-								{ type: 'f', value: fade.fromVolume },
+								{ type: 'f', value: fade.baseLevel },
 							])
-						}, this.fadeStopRestoreDelay)
+						})
 					} else {
 						this.sendOsc('/live/clip/set/gain', [
 							{ type: 'i', value: fade.track },
@@ -456,15 +525,15 @@ export default class AbletonOSCInstance extends InstanceBase {
 						if (fade.direction === 'out') {
 							// Stop clips first
 							this.sendOsc('/live/track/stop_all_clips', [{ type: 'i', value: fade.track }])
-							// Restore volume slightly delayed so the clips actually stop before
-							// the fader jumps back up - otherwise the volume rises before playback
-							// stops and produces an audible "pop"
-							setTimeout(() => {
+							// Restore the pre-fade volume slightly delayed so the clips actually stop
+							// before the fader jumps back up - otherwise the volume rises before
+							// playback stops and produces an audible "pop"
+							this.scheduleFadeRestore(() => {
 								this.sendOsc('/live/track/set/volume', [
 									{ type: 'i', value: fade.track },
-									{ type: 'f', value: fade.fromVolume },
+									{ type: 'f', value: fade.baseLevel },
 								])
-							}, this.fadeStopRestoreDelay)
+							})
 						} else {
 							// Fade in: ensure we hit target exactly
 							this.sendOsc('/live/track/set/volume', [

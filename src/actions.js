@@ -524,23 +524,8 @@ export function UpdateActions(self) {
 				const clip = parseInt(clipStr) - 1
 				const duration = event.options.duration
 
-				const id = `clip_${track}_${clip}`
-
-				// Interrupt any fade already running on this clip
-				const existingFade = self.activeFades[id]
-				if (existingFade && existingFade.interval) {
-					clearInterval(existingFade.interval)
-				}
-
-				self.activeFades[id] = {
-					type: 'clip',
-					direction: 'out',
-					track,
-					clip,
-					duration,
-					startTime: Date.now(),
-					state: 'init',
-				}
+				// Replaces any fade already running on this clip
+				self.armFade(`clip_${track}_${clip}`, { type: 'clip', direction: 'out', track, clip, duration })
 
 				// The fade only starts once Live answers with the current gain (see startFade)
 				self.sendOsc('/live/clip/get/gain', [
@@ -575,23 +560,8 @@ export function UpdateActions(self) {
 				const clip = parseInt(clipStr) - 1
 				const duration = event.options.duration
 
-				const id = `clip_${track}_${clip}`
-
-				// Interrupt any fade already running on this clip
-				const existingFade = self.activeFades[id]
-				if (existingFade && existingFade.interval) {
-					clearInterval(existingFade.interval)
-				}
-
-				self.activeFades[id] = {
-					type: 'clip',
-					direction: 'in',
-					track,
-					clip,
-					duration,
-					startTime: Date.now(),
-					state: 'init',
-				}
+				// Replaces any fade already running on this clip
+				self.armFade(`clip_${track}_${clip}`, { type: 'clip', direction: 'in', track, clip, duration })
 
 				// The clip is fired by startFade, once Live answers with the current gain
 				self.sendOsc('/live/clip/get/gain', [
@@ -623,22 +593,8 @@ export function UpdateActions(self) {
 				const track = event.options.track - 1
 				const duration = event.options.duration
 
-				const id = `track_${track}`
-
-				// Interrupt any fade already running on this track
-				const existingFade = self.activeFades[id]
-				if (existingFade && existingFade.interval) {
-					clearInterval(existingFade.interval)
-				}
-
-				self.activeFades[id] = {
-					type: 'track',
-					direction: 'out',
-					track,
-					duration,
-					startTime: Date.now(),
-					state: 'init',
-				}
+				// Replaces any fade already running on this track
+				self.armFade(`track_${track}`, { type: 'track', direction: 'out', track, duration })
 
 				// The fade only starts once Live answers with the current volume (see startFade)
 				self.sendOsc('/live/track/get/volume', [{ type: 'i', value: track }])
@@ -667,22 +623,8 @@ export function UpdateActions(self) {
 				const track = event.options.track - 1
 				const duration = event.options.duration
 
-				const id = `track_${track}`
-
-				// Interrupt any fade already running on this track
-				const existingFade = self.activeFades[id]
-				if (existingFade && existingFade.interval) {
-					clearInterval(existingFade.interval)
-				}
-
-				self.activeFades[id] = {
-					type: 'track',
-					direction: 'in',
-					track,
-					duration,
-					startTime: Date.now(),
-					state: 'init',
-				}
+				// Replaces any fade already running on this track
+				self.armFade(`track_${track}`, { type: 'track', direction: 'in', track, duration })
 
 				// The fade only starts once Live answers with the current volume (see startFade)
 				self.sendOsc('/live/track/get/volume', [{ type: 'i', value: track }])
